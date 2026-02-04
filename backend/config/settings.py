@@ -39,8 +39,11 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "corsheaders",
-    "api",
     "accounts",
+    "geo",
+    "flights",
+    "tickets",
+    "api",
 ]
 
 MIDDLEWARE = [
@@ -126,3 +129,48 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 AUTH_USER_MODEL = "accounts.User"
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{levelname} {asctime} {module} {message}",
+            "style": "{",
+        },
+        "simple": {
+            "format": "{levelname} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "level": "DEBUG",
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": True,
+        },
+        "accounts": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+        },
+        "geo": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+        },
+        "flights": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+        },
+        "tickets": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+        },
+    },
+}
