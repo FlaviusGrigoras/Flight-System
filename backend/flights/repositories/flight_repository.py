@@ -1,4 +1,4 @@
-from accounts.models import Flight
+from flights.models import Flight
 from django.utils import timezone
 from datetime import timedelta
 

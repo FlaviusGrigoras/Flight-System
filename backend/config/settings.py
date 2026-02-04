@@ -43,7 +43,6 @@ INSTALLED_APPS = [
     "geo",
     "flights",
     "tickets",
-    "api",
 ]
 
 MIDDLEWARE = [
@@ -173,4 +172,8 @@ LOGGING = {
             "level": "DEBUG",
         },
     },
+}
+
+REST_FRAMEWORK = {
+    "EXCEPTION_HANDLER": "core.drf_exception_handler.custom_exception_handler",
 }
