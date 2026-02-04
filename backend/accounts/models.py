@@ -1,17 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 
-class UserRole(models.Model):
-    role_name = models.CharField(max_length=50, unique=True)
-
-    def __str__(self):
-        return self.role_name
-
 
 class User(AbstractUser):
-    user_role = models.ForeignKey(
-        UserRole, on_delete=models.CASCADE, null=True, blank=True
-    )
     image = models.ImageField(upload_to="profiles/", null=True, blank=True)
 
     REQUIRED_FIELDS = ["email"]
@@ -22,7 +13,7 @@ class User(AbstractUser):
 
 class AirlineCompany(models.Model):
     name = models.CharField(max_length=100, unique=True)
-    country = models.ForeignKey('geo.Country', on_delete=models.CASCADE)
+    country = models.ForeignKey("geo.Country", on_delete=models.CASCADE)
     user = models.OneToOneField(User, on_delete=models.CASCADE)
 
     def __str__(self):

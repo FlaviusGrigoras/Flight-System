@@ -1,7 +1,6 @@
 from django.contrib import admin
 from .models import (
     User,
-    UserRole,
     AirlineCompany,
     Customer,
     Administrator,
@@ -26,5 +25,4 @@ class CustomerAdmin(admin.ModelAdmin):
     search_fields = ("first_name", "last_name", "phone_no")
 
 
-admin.site.register(UserRole)
 admin.site.register(Administrator)
