@@ -4,13 +4,21 @@ from django.core.validators import MinValueValidator
 
 class Flight(models.Model):
     airline_company = models.ForeignKey(
-        "accounts.AirlineCompany", on_delete=models.CASCADE
+        "accounts.AirlineCompany", on_delete=models.PROTECT, related_name="flights"
     )
-    origin_country = models.ForeignKey(
-        "geo.Country", related_name="departures", on_delete=models.CASCADE
+    origin_airport = models.ForeignKey(
+        "geo.Airport",
+        on_delete=models.PROTECT,
+        related_name="departing_flights",
+        null=True,
+        blank=True,
     )
-    destination_country = models.ForeignKey(
-        "geo.Country", related_name="arrivals", on_delete=models.CASCADE
+    destination_airport = models.ForeignKey(
+        "geo.Airport",
+        on_delete=models.PROTECT,
+        related_name="arriving_flights",
+        null=True,
+        blank=True,
     )
 
     departure_time = models.DateTimeField()
@@ -18,4 +26,6 @@ class Flight(models.Model):
     remaining_tickets = models.IntegerField(validators=[MinValueValidator(0)])
 
     def __str__(self):
-        return f"{self.airline_company.name} Flight ({self.origin_country} -> {self.destination_country})"
+        origin = self.origin_airport or "N/A"
+        destination = self.destination_airport or "N/A"
+        return f"{self.airline_company.name} Flight ({origin} -> {destination})"

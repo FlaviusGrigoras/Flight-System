@@ -15,9 +15,8 @@ class UserAdmin(admin.ModelAdmin):
 
 @admin.register(AirlineCompany)
 class AirlineCompanyAdmin(admin.ModelAdmin):
-    list_display = ("name", "country")
-    list_filter = ("country",)
-
+    search_fields = ("name",)
+    list_display = ("id", "name")
 
 @admin.register(Customer)
 class CustomerAdmin(admin.ModelAdmin):
