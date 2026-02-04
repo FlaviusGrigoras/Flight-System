@@ -1,16 +1,21 @@
 # Python / Django
 __pycache__/
-*.py[cod]
-venv/
-db.sqlite3
-.env
+*.pyc
+*.pyo
+*.pyd
 *.log
+.env
+.env.*
 
-# Node / React
-node_modules/
-build/
-.eslintcache
+# Virtualenv
+.venv/
+backend/.venv/
 
-# IDEs
-.idea/
-.vscode/
+# DB local
+*.sqlite3
+db.sqlite3
+
+# Tests
+.pytest_cache/
+.coverage
+htmlcov/
