@@ -3,6 +3,9 @@ from tickets.repositories.ticket_repository import TicketRepository
 from tickets.models import Ticket
 from core.exceptions import ValidationDomainError, NotFoundError
 from django.db import transaction
+import logging
+
+logger = logging.getLogger("tickets")
 
 
 class CustomerFacade(FacadeBase):
@@ -37,7 +40,11 @@ class CustomerFacade(FacadeBase):
             self.flight_repo.update(flight)
 
             ticket = Ticket(flight=flight, customer=self.customer)
-            self.ticket_repo.add(Ticket)
+            self.ticket_repo.add(ticket)
+
+            logger.info(
+                f"Customer '{self.customer.first_name} {self.customer.last_name}' successfully purchased a ticket for flight ID {flight.id}."
+            )
 
             return ticket
 

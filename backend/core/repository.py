@@ -18,5 +18,15 @@ class BaseRepository:
         instance.save()
         return instance
 
-    def delete(self, id):
+    def update(self, instance):
+        instance.save()
+        return instance
+
+    def add_all(self, instances, batch_size=500):
+        if not instances:
+            return []
+
+        return self.model.objects.bulk_create(instances, batch_size=batch_size)
+
+    def remove(self, id):
         self.model.objects.filter(id=id).delete()

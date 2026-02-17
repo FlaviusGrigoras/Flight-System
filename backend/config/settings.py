@@ -155,28 +155,34 @@ LOGGING = {
             "class": "logging.StreamHandler",
             "formatter": "verbose",
         },
+        "file": {
+            "level": "INFO",
+            "class": "logging.FileHandler",
+            "filename": BASE_DIR / "operations.log",
+            "formatter": "verbose",
+        },
     },
     "loggers": {
         "django": {
-            "handlers": ["console"],
+            "handlers": ["console", "file"],
             "level": "INFO",
             "propagate": True,
         },
         "accounts": {
-            "handlers": ["console"],
-            "level": "DEBUG",
+            "handlers": ["console", "file"],
+            "level": "INFO",
         },
         "geo": {
-            "handlers": ["console"],
-            "level": "DEBUG",
+            "handlers": ["console", "file"],
+            "level": "INFO",
         },
         "flights": {
-            "handlers": ["console"],
-            "level": "DEBUG",
+            "handlers": ["console", "file"],
+            "level": "INFO",
         },
         "tickets": {
-            "handlers": ["console"],
-            "level": "DEBUG",
+            "handlers": ["console", "file"],
+            "level": "INFO",
         },
     },
 }

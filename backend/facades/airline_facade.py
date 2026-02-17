@@ -2,6 +2,9 @@ from facades.base_facade import FacadeBase
 from core.exceptions import ForbiddenError, ValidationDomainError, NotFoundError
 from django.utils import timezone
 from flights.models import Flight
+import logging
+
+logger = logging.getLogger("flights")
 
 
 class AirlineFacade(FacadeBase):
@@ -41,6 +44,9 @@ class AirlineFacade(FacadeBase):
         )
         self.flight_repo.add(new_flight)
 
+        logger.info(
+            f"Airline '{self.airline_company.name}' added a new flight from airport ID {flight_data['origin_airport']} to {flight_data['destination_airport']}."
+        )
         return new_flight
 
     def update_flight(self, flight_id, update_data):
@@ -56,6 +62,10 @@ class AirlineFacade(FacadeBase):
         for key, value in update_data.items():
             setattr(flight, key, value)
 
+        logger.info(
+            f"Airline '{self.airline_company.name}' updated flight ID {flight_id}."
+        )
+
         return self.flight_repo.update(flight)
 
     def remove_flight(self, flight_id):
@@ -64,6 +74,10 @@ class AirlineFacade(FacadeBase):
             raise ValidationDomainError("Flight does not exist")
 
         self._validate_airline_ownership(flight)
+
+        logger.info(
+            f"Airline '{self.airline_company.name}' removed flight ID {flight_id}."
+        )
 
         return self.flight_repo.delete(flight_id)
 
