@@ -23,7 +23,9 @@ class FacadeBase:
     def get_flights_by_parameters(
         self, origin_country_id, destination_country_id, date
     ):
-        pass
+        return self.flight_repo.get_flights_by_parameters(
+            origin_country_id, destination_country_id, date
+        )
 
     def get_all_airlines(self):
         return self.airline_repo.get_all()
