@@ -1,6 +1,7 @@
 from flights.repositories.flight_repository import FlightRepository
 from accounts.repositories.airline_repository import AirlineCompanyRepository
 from accounts.repositories.customer_repositories import CustomerRepository
+from accounts.repositories.user_repository import UserRepository
 from geo.repositories.country_repository import CountryRepository
 from accounts.models import User, Customer, AirlineCompany
 
@@ -10,6 +11,7 @@ class FacadeBase:
         self.flight_repo = FlightRepository()
         self.airline_repo = AirlineCompanyRepository()
         self.customer_repo = CustomerRepository()
+        self.user_repo = UserRepository()
         self.country_repo = CountryRepository()
 
     def get_all_flights(self):
