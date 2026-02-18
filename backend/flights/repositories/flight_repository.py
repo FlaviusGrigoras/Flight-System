@@ -85,3 +85,16 @@ class FlightRepository:
             origin_airport__country_id=country_id,
             departure_time__range=(now, limit),
         )
+
+    def get_flights_by_parameters(
+        self, origin_country_id, destination_country_id, target_date
+    ):
+        return Flight.objects.select_related(
+            "airline_company",
+            "origin_airport__country",
+            "destination_airport__country",
+        ).filter(
+            origin_airport__country_id=origin_country_id,
+            destination_airport__country_id=destination_country_id,
+            departure_time__date=target_date,
+        )
