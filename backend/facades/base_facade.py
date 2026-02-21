@@ -3,7 +3,7 @@ from accounts.repositories.airline_repository import AirlineCompanyRepository
 from accounts.repositories.customer_repositories import CustomerRepository
 from accounts.repositories.user_repository import UserRepository
 from geo.repositories.country_repository import CountryRepository
-from accounts.models import User, Customer, AirlineCompany
+from accounts.models import User
 
 
 class FacadeBase:
