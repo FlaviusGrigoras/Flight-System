@@ -1,6 +1,6 @@
 from django.urls import path
+from geo.api.views import CountryListAPIView
 
-from geo.api import views
-
-
-urlpatterns = []
+urlpatterns = [
+    path("countries/", CountryListAPIView.as_view(), name="api-countries"),
+]
