@@ -1,5 +1,6 @@
 from facades.base_facade import FacadeBase
 from django.contrib.auth import authenticate
+from django.db import transaction
 from core.exceptions import ValidationDomainError
 
 from accounts.models import Customer
@@ -20,9 +21,10 @@ class AnonymousFacade(FacadeBase):
     def add_customer(self, user_data, customer_data):
         # user_data -> dictionar cu username, password, email
         # customer_data -> dictionar cu first_name, last_name, address, phone_no, credit_card_no
-        user = self.create_user(**user_data)
-        customer = Customer(user=user, **customer_data)
-        saved_customer = self.customer_repo.add(customer)
+        with transaction.atomic():
+            user = self.create_user(**user_data)
+            customer = Customer(user=user, **customer_data)
+            saved_customer = self.customer_repo.add(customer)
         logger.info(
             f"New customer registered: '{customer.first_name} {customer.last_name}' (Username: {user.username})."
         )
@@ -30,9 +32,10 @@ class AnonymousFacade(FacadeBase):
         return saved_customer
 
     def add_airline(self, user_data, airline_data):
-        user = self.create_user(**user_data)
-        airline = AirlineCompany(user=user, **airline_data)
-        saved_airline = self.airline_repo.add(airline)
+        with transaction.atomic():
+            user = self.create_user(**user_data)
+            airline = AirlineCompany(user=user, **airline_data)
+            saved_airline = self.airline_repo.add(airline)
 
         logger.info(
             f"New airline company registered: '{airline.name}' (Username: {user.username})."
