@@ -1,11 +1,14 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.tokens import RefreshToken
 from facades.anonymous_facade import AnonymousFacade
 from .serializers import (
     LoginRequestSerializer,
     CustomerRegistrationSerializer,
     AirlineRegistrationSerializer,
+    CurrentUserSerializer,
 )
 
 
@@ -19,11 +22,18 @@ class LoginAPIView(APIView):
             username=serializer.validated_data["username"],
             password=serializer.validated_data["password"],
         )
-
-        # TODO: JWT Token
+        refresh = RefreshToken.for_user(user)
+        user_data = CurrentUserSerializer(user).data
 
         return Response(
-            {"message": "Login successful", "username": user.username},
+            {
+                "message": "Login successful",
+                "user": user_data,
+                "tokens": {
+                    "access": str(refresh.access_token),
+                    "refresh": str(refresh),
+                },
+            },
             status=status.HTTP_200_OK,
         )
 
@@ -82,3 +92,11 @@ class RegisterAirlineAPIView(APIView):
             {"message": "Airline created successfully", "airline_id": airline.id},
             status=status.HTTP_201_CREATED,
         )
+
+
+class CurrentUserAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        serializer = CurrentUserSerializer(request.user)
+        return Response(serializer.data, status=status.HTTP_200_OK)

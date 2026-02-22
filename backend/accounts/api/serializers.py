@@ -57,3 +57,20 @@ class AirlineRegistrationSerializer(serializers.Serializer):
         if not Country.objects.filter(id=value).exists():
             raise serializers.ValidationError("Country does not exist.")
         return value
+
+
+class CurrentUserSerializer(serializers.ModelSerializer):
+    role = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ["id", "username", "email", "role"]
+
+    def get_role(self, obj):
+        if hasattr(obj, "administrator"):
+            return "administrator"
+        if hasattr(obj, "airlinecompany"):
+            return "airline"
+        if hasattr(obj, "customer"):
+            return "customer"
+        return "anonymous"
