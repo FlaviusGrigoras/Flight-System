@@ -56,7 +56,6 @@ class RegisterCustomerAPIView(APIView):
             "last_name": data["last_name"],
             "address": data["address"],
             "phone_no": data["phone_no"],
-            "credit_card_no": data["credit_card_no"],
         }
 
         facade = AnonymousFacade()

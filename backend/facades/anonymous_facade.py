@@ -20,7 +20,7 @@ class AnonymousFacade(FacadeBase):
 
     def add_customer(self, user_data, customer_data):
         # user_data -> dictionar cu username, password, email
-        # customer_data -> dictionar cu first_name, last_name, address, phone_no, credit_card_no
+        # customer_data -> dictionar cu first_name, last_name, address, phone_no
         with transaction.atomic():
             user = self.create_user(**user_data)
             customer = Customer(user=user, **customer_data)

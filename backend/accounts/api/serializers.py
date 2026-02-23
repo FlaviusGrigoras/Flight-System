@@ -20,18 +20,15 @@ class CustomerRegistrationSerializer(serializers.Serializer):
         validators=[UniqueValidator(queryset=User.objects.all())],
     )
     password = serializers.CharField(min_length=8, write_only=True, required=True)
-    email = serializers.EmailField(required=True)
+    email = serializers.EmailField(
+        required=True, validators=[UniqueValidator(queryset=User.objects.all())]
+    )
 
     first_name = serializers.CharField(max_length=100, required=True)
     last_name = serializers.CharField(max_length=100, required=True)
     address = serializers.CharField(max_length=100, required=True)
     phone_no = serializers.CharField(
         max_length=15,
-        required=True,
-        validators=[UniqueValidator(queryset=Customer.objects.all())],
-    )
-    credit_card_no = serializers.CharField(
-        max_length=13,
         required=True,
         validators=[UniqueValidator(queryset=Customer.objects.all())],
     )
@@ -44,7 +41,10 @@ class AirlineRegistrationSerializer(serializers.Serializer):
         validators=[UniqueValidator(queryset=User.objects.all())],
     )
     password = serializers.CharField(min_length=8, write_only=True, required=True)
-    email = serializers.EmailField(required=True)
+    email = serializers.EmailField(
+        required=True,
+        validators=[UniqueValidator(queryset=User.objects.all())],
+    )
 
     name = serializers.CharField(
         max_length=100,
@@ -67,10 +67,10 @@ class CurrentUserSerializer(serializers.ModelSerializer):
         fields = ["id", "username", "email", "role"]
 
     def get_role(self, obj):
-        if hasattr(obj, "administrator"):
+        if hasattr(obj, "admin_profile"):
             return "administrator"
-        if hasattr(obj, "airlinecompany"):
+        if hasattr(obj, "airline_profile"):
             return "airline"
-        if hasattr(obj, "customer"):
+        if hasattr(obj, "customer_profile"):
             return "customer"
         return "anonymous"
