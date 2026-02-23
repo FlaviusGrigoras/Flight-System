@@ -22,6 +22,21 @@ class AirlineFacade(FacadeBase):
         if not self.airline_company:
             raise ForbiddenError("User in not an airline company")
 
+        def _to_pk(value, field_name: str) -> int:
+            if isinstance(value, int):
+                return value
+            if value is None:
+                raise ValidationDomainError(f"{field_name} is required")
+            pk = getattr(value, "pk", None)
+            if isinstance(pk, int):
+                return pk
+            raise ValidationDomainError(f"Invalid {field_name}")
+
+        origin_airport_id = _to_pk(flight_data.get("origin_airport"), "origin_airport")
+        destination_airport_id = _to_pk(
+            flight_data.get("destination_airport"), "destination_airport"
+        )
+
         if flight_data["remaining_tickets"] < 0:
             raise ValidationDomainError("Ticket count cannot be negative")
 
@@ -31,13 +46,19 @@ class AirlineFacade(FacadeBase):
         if flight_data["departure_time"] < timezone.now():
             raise ValidationDomainError("Cannot create flights in the past.")
 
-        if flight_data["origin_airport"] == flight_data["destination_airport"]:
+        departure_local_date = timezone.localtime(flight_data["departure_time"]).date()
+        if departure_local_date == timezone.localdate():
+            raise ValidationDomainError(
+                "Cannot create flights departing today. Choose a later date."
+            )
+
+        if origin_airport_id == destination_airport_id:
             raise ValidationDomainError("Origin and Destination cannot be the same.")
 
         new_flight = Flight(
             airline_company_id=self.airline_company.id,
-            origin_airport_id=flight_data["origin_airport"],
-            destination_airport_id=flight_data["destination_airport"],
+            origin_airport_id=origin_airport_id,
+            destination_airport_id=destination_airport_id,
             departure_time=flight_data["departure_time"],
             landing_time=flight_data["landing_time"],
             remaining_tickets=flight_data["remaining_tickets"],
@@ -45,7 +66,7 @@ class AirlineFacade(FacadeBase):
         self.flight_repo.add(new_flight)
 
         logger.info(
-            f"Airline '{self.airline_company.name}' added a new flight from airport ID {flight_data['origin_airport']} to {flight_data['destination_airport']}."
+            f"Airline '{self.airline_company.name}' added a new flight from airport ID {origin_airport_id} to {destination_airport_id}."
         )
         return new_flight
 
@@ -56,8 +77,52 @@ class AirlineFacade(FacadeBase):
 
         self._validate_airline_ownership(flight)
 
+        if flight.departure_time <= timezone.now():
+            raise ValidationDomainError("Cannot modify a flight that already departed.")
+
+        def _to_pk(value, field_name: str) -> int:
+            if isinstance(value, int):
+                return value
+            if value is None:
+                raise ValidationDomainError(f"{field_name} is required")
+            pk = getattr(value, "pk", None)
+            if isinstance(pk, int):
+                return pk
+            raise ValidationDomainError(f"Invalid {field_name}")
+
+        if "airline_company" in update_data or "airline_company_id" in update_data:
+            raise ValidationDomainError("airline_company cannot be changed.")
+
+        if "origin_airport" in update_data:
+            update_data["origin_airport_id"] = _to_pk(
+                update_data.pop("origin_airport"), "origin_airport"
+            )
+
+        if "destination_airport" in update_data:
+            update_data["destination_airport_id"] = _to_pk(
+                update_data.pop("destination_airport"), "destination_airport"
+            )
+
         if "remaining_tickets" in update_data and update_data["remaining_tickets"] < 0:
             raise ValidationDomainError("Ticket count cannot be negative")
+
+        new_departure = update_data.get("departure_time", flight.departure_time)
+        new_landing = update_data.get("landing_time", flight.landing_time)
+        if new_landing <= new_departure:
+            raise ValidationDomainError("Landing time must be after departure time.")
+        if new_departure < timezone.now():
+            raise ValidationDomainError("Cannot set departure time in the past.")
+        if timezone.localtime(new_departure).date() == timezone.localdate():
+            raise ValidationDomainError(
+                "Cannot set departure time to today. Choose a later date."
+            )
+
+        new_origin_id = update_data.get("origin_airport_id", flight.origin_airport_id)
+        new_destination_id = update_data.get(
+            "destination_airport_id", flight.destination_airport_id
+        )
+        if new_origin_id == new_destination_id:
+            raise ValidationDomainError("Origin and Destination cannot be the same.")
 
         for key, value in update_data.items():
             setattr(flight, key, value)
@@ -74,6 +139,9 @@ class AirlineFacade(FacadeBase):
             raise ValidationDomainError("Flight does not exist")
 
         self._validate_airline_ownership(flight)
+
+        if flight.departure_time <= timezone.now():
+            raise ValidationDomainError("Cannot delete a flight that already departed.")
 
         logger.info(
             f"Airline '{self.airline_company.name}' removed flight ID {flight_id}."

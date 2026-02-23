@@ -4,9 +4,10 @@ from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from django.utils.dateparse import parse_date
+from core.exceptions import ForbiddenError
 from facades.base_facade import FacadeBase
 from facades.airline_facade import AirlineFacade
-from .serializers import FlightSerializer
+from .serializers import FlightSerializer, FlightReadSerializer
 
 
 class FlightListAPIView(APIView):
@@ -66,7 +67,7 @@ class AirlineFlightsAPIView(APIView):
     def get(self, request):
         facade = AirlineFacade(request.user.username)
         flights = facade.get_my_flights()
-        serializer = FlightSerializer(flights, many=True)
+        serializer = FlightReadSerializer(flights, many=True)
         return Response(serializer.data)
 
     def post(self, request):
@@ -76,5 +77,38 @@ class AirlineFlightsAPIView(APIView):
 
         new_flight = facade.add_flight(serializer.validated_data)
         return Response(
-            FlightSerializer(new_flight).data, status=status.HTTP_201_CREATED
+            FlightReadSerializer(new_flight).data, status=status.HTTP_201_CREATED
         )
+
+
+class AirlineFlightDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def _get_airline_facade(self, request):
+        facade = AirlineFacade(request.user.username)
+        if not facade.airline_company:
+            raise ForbiddenError("User is not an airline company")
+        return facade
+
+    def get(self, request, pk: int):
+        facade = self._get_airline_facade(request)
+        flight = facade.get_flight_by_id(pk)
+        if not flight:
+            return Response(
+                {"error": "Flight not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        if flight.airline_company_id != facade.airline_company.id:
+            raise ForbiddenError("You can only manage your own flights")
+        return Response(FlightReadSerializer(flight).data)
+
+    def patch(self, request, pk: int):
+        facade = self._get_airline_facade(request)
+        serializer = FlightSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        updated = facade.update_flight(pk, serializer.validated_data)
+        return Response(FlightReadSerializer(updated).data, status=status.HTTP_200_OK)
+
+    def delete(self, request, pk: int):
+        facade = self._get_airline_facade(request)
+        facade.remove_flight(pk)
+        return Response(status=status.HTTP_204_NO_CONTENT)
