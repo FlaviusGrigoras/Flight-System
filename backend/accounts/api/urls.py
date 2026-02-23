@@ -11,6 +11,7 @@ urlpatterns = [
     # POST
     path("login/", LoginAPIView.as_view(), name="api-login"),
     path("token/refresh/", TokenRefreshView.as_view(), name="api-token-refresh"),
+    # GET
     path("me/", CurrentUserAPIView.as_view(), name="api-me"),
     path(
         "register/customer/",
