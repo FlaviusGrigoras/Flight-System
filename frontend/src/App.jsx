@@ -4,6 +4,8 @@ import HomePage from "./pages/HomePage";
 import CustomerDashboard from "./pages/CustomerDashboard";
 import { AuthProvider } from "./context/AuthProvider";
 import LoginPage from "./pages/LoginPage";
+import AirlineDashboard from "./pages/AirlineDashboard";
+import RegisterPage from "./pages/RegisterPage";
 
 function App() {
   return (
@@ -15,7 +17,9 @@ function App() {
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
             <Route path="/customer/dashboard" element={<CustomerDashboard />} />
+            <Route path="/airline/dashboard" element={<AirlineDashboard />} />
           </Routes>
         </div>
       </Router>
