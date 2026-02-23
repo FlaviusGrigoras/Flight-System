@@ -1,21 +1,27 @@
-# Python / Django
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-*.log
+# Dependențe Node.js (cel mai important de ignorat!)
+node_modules/
+/.pnp
+.pnp.js
+
+# Fișiere de build (versiunea de producție)
+/build
+/dist
+
+# Fișiere de testare
+/coverage
+
+# Fișiere de environment (pentru variabile secrete)
 .env
-.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# Virtualenv
-.venv/
-backend/.venv/
+# Log-uri de erori npm / yarn
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# DB local
-*.sqlite3
-db.sqlite3
-
-# Tests
-.pytest_cache/
-.coverage
-htmlcov/
+# Fișiere de sistem (specifice macOS/Windows)
+.DS_Store
+Thumbs.db
