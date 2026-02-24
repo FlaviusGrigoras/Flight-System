@@ -53,7 +53,13 @@ def test_flight_repository_arrival_departure_queries():
         destination_airport=otp,
         departure_time=now + timedelta(hours=1),
         landing_time=now + timedelta(hours=2),
-        remaining_tickets=50,
+        remaining_tickets=80,
+        economy_seats=60,
+        business_seats=20,
+        remaining_economy_tickets=60,
+        remaining_business_tickets=20,
+        economy_price=100,
+        business_price=180,
     )
     departure_match = Flight.objects.create(
         airline_company=airline,
@@ -61,7 +67,13 @@ def test_flight_repository_arrival_departure_queries():
         destination_airport=fra,
         departure_time=now + timedelta(hours=3),
         landing_time=now + timedelta(hours=5),
-        remaining_tickets=50,
+        remaining_tickets=80,
+        economy_seats=60,
+        business_seats=20,
+        remaining_economy_tickets=60,
+        remaining_business_tickets=20,
+        economy_price=90,
+        business_price=170,
     )
     Flight.objects.create(
         airline_company=airline,
@@ -69,7 +81,13 @@ def test_flight_repository_arrival_departure_queries():
         destination_airport=otp,
         departure_time=now + timedelta(hours=13),
         landing_time=now + timedelta(hours=14),
-        remaining_tickets=50,
+        remaining_tickets=80,
+        economy_seats=60,
+        business_seats=20,
+        remaining_economy_tickets=60,
+        remaining_business_tickets=20,
+        economy_price=95,
+        business_price=175,
     )
     Flight.objects.create(
         airline_company=airline,
@@ -77,7 +95,13 @@ def test_flight_repository_arrival_departure_queries():
         destination_airport=fra,
         departure_time=now + timedelta(hours=13),
         landing_time=now + timedelta(hours=15),
-        remaining_tickets=50,
+        remaining_tickets=80,
+        economy_seats=60,
+        business_seats=20,
+        remaining_economy_tickets=60,
+        remaining_business_tickets=20,
+        economy_price=95,
+        business_price=175,
     )
 
     repo = FlightRepository()
@@ -127,7 +151,13 @@ def test_flights_arrivals_and_departures_api():
         destination_airport=otp,
         departure_time=now + timedelta(hours=2),
         landing_time=now + timedelta(hours=4),
-        remaining_tickets=10,
+        remaining_tickets=40,
+        economy_seats=30,
+        business_seats=10,
+        remaining_economy_tickets=30,
+        remaining_business_tickets=10,
+        economy_price=80,
+        business_price=150,
     )
     departing_flight = Flight.objects.create(
         airline_company=airline,
@@ -135,7 +165,13 @@ def test_flights_arrivals_and_departures_api():
         destination_airport=fco,
         departure_time=now + timedelta(hours=1),
         landing_time=now + timedelta(hours=3),
-        remaining_tickets=10,
+        remaining_tickets=40,
+        economy_seats=30,
+        business_seats=10,
+        remaining_economy_tickets=30,
+        remaining_business_tickets=10,
+        economy_price=85,
+        business_price=155,
     )
 
     client = APIClient()

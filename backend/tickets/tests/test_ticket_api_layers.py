@@ -53,14 +53,20 @@ def test_ticket_purchase_and_airline_sold_api_flow():
         destination_airport=cdg,
         departure_time=timezone.now() + timedelta(days=1),
         landing_time=timezone.now() + timedelta(days=1, hours=3),
-        remaining_tickets=5,
+        remaining_tickets=20,
+        economy_seats=12,
+        business_seats=8,
+        remaining_economy_tickets=12,
+        remaining_business_tickets=8,
+        economy_price=100,
+        business_price=180,
     )
 
     customer_client = APIClient()
     customer_client.force_authenticate(user=customer_user)
     purchase_response = customer_client.post(
         "/api/tickets/purchase/",
-        {"flight_id": flight.id},
+        {"flight_id": flight.id, "cabin_class": "ECONOMY"},
         format="json",
     )
 
@@ -68,7 +74,7 @@ def test_ticket_purchase_and_airline_sold_api_flow():
     assert Ticket.objects.filter(flight=flight, customer=customer).exists()
 
     flight.refresh_from_db()
-    assert flight.remaining_tickets == 4
+    assert flight.remaining_tickets == 19
 
     airline_client = APIClient()
     airline_client.force_authenticate(user=airline_user)
