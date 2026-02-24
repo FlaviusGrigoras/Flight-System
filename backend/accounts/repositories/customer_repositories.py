@@ -8,3 +8,6 @@ class CustomerRepository(BaseRepository):
 
     def get_customer_by_username(self, username):
         return self.model.objects.filter(user__username=username).first()
+
+    def get_all_with_users(self):
+        return self.model.objects.select_related("user").all()

@@ -10,3 +10,6 @@ class UserRepository(BaseRepository):
 
     def get_by_username(self, username):
         return self.model.objects.filter(username=username).first()
+
+    def exists_by_username(self, username):
+        return self.model.objects.filter(username=username).exists()
