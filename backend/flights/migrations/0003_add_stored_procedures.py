@@ -3,10 +3,61 @@
 from django.db import migrations
 
 
+def create_flight_lookup_functions(apps, schema_editor):
+    if schema_editor.connection.vendor != "postgresql":
+        return
+
+    with schema_editor.connection.cursor() as cursor:
+        cursor.execute(
+            """
+            CREATE OR REPLACE FUNCTION get_arrival_flights(p_country_id INTEGER)
+            RETURNS TABLE(id BIGINT)
+            LANGUAGE sql
+            AS $$
+                SELECT f.id
+                FROM flights_flight AS f
+                INNER JOIN geo_airport AS destination_airport
+                    ON destination_airport.id = f.destination_airport_id
+                WHERE destination_airport.country_id = p_country_id
+                  AND f.landing_time BETWEEN NOW() AND (NOW() + INTERVAL '12 hours')
+                ORDER BY f.landing_time ASC;
+            $$;
+            """
+        )
+
+        cursor.execute(
+            """
+            CREATE OR REPLACE FUNCTION get_departure_flights(p_country_id INTEGER)
+            RETURNS TABLE(id BIGINT)
+            LANGUAGE sql
+            AS $$
+                SELECT f.id
+                FROM flights_flight AS f
+                INNER JOIN geo_airport AS origin_airport
+                    ON origin_airport.id = f.origin_airport_id
+                WHERE origin_airport.country_id = p_country_id
+                  AND f.departure_time BETWEEN NOW() AND (NOW() + INTERVAL '12 hours')
+                ORDER BY f.departure_time ASC;
+            $$;
+            """
+        )
+
+
+def drop_flight_lookup_functions(apps, schema_editor):
+    if schema_editor.connection.vendor != "postgresql":
+        return
+
+    with schema_editor.connection.cursor() as cursor:
+        cursor.execute("DROP FUNCTION IF EXISTS get_arrival_flights(INTEGER);")
+        cursor.execute("DROP FUNCTION IF EXISTS get_departure_flights(INTEGER);")
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
         ("flights", "0002_remove_flight_destination_country_and_more"),
     ]
 
-    operations = []
+    operations = [
+        migrations.RunPython(create_flight_lookup_functions, drop_flight_lookup_functions),
+    ]

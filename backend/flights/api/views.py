@@ -61,6 +61,30 @@ class FlightDetailAPIView(APIView):
         return Response(FlightSerializer(flight).data)
 
 
+class ArrivalFlightsAPIView(APIView):
+    def get(self, request):
+        country_id = request.query_params.get("country_id")
+        if not country_id or not country_id.isdigit():
+            raise ValidationError({"country_id": "country_id must be an integer"})
+
+        facade = FacadeBase()
+        flights = facade.get_arrival_flights(int(country_id))
+        serializer = FlightSerializer(flights, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class DepartureFlightsAPIView(APIView):
+    def get(self, request):
+        country_id = request.query_params.get("country_id")
+        if not country_id or not country_id.isdigit():
+            raise ValidationError({"country_id": "country_id must be an integer"})
+
+        facade = FacadeBase()
+        flights = facade.get_departure_flights(int(country_id))
+        serializer = FlightSerializer(flights, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
 class AirlineFlightsAPIView(APIView):
     permission_classes = [IsAuthenticated]  # Endpoint protejat
 
