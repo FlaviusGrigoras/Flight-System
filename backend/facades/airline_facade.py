@@ -1,8 +1,12 @@
 from facades.base_facade import FacadeBase
 from core.exceptions import ForbiddenError, ValidationDomainError, NotFoundError
 from django.utils import timezone
+from django.db import transaction
 from flights.models import Flight
 from tickets.repositories.ticket_repository import TicketRepository
+from decimal import Decimal, InvalidOperation
+from datetime import timedelta, date
+import calendar
 import logging
 
 logger = logging.getLogger("flights")
@@ -19,10 +23,36 @@ class AirlineFacade(FacadeBase):
             raise ForbiddenError("You can only manage your own flights")
 
     def add_flight(self, flight_data):
-        # flight_data -> origin_airport, destination_airport, departure_time, landing_time, remaining_tickets
+        # flight_data -> origin_airport, destination_airport, departure_time, landing_time,
+        # economy_seats, business_seats, economy_price, business_price, recurrence_frequency, recurrence_end_date
 
         if not self.airline_company:
             raise ForbiddenError("User in not an airline company")
+
+        def _to_int(value, field_name: str) -> int:
+            if value is None:
+                raise ValidationDomainError(f"{field_name} is required")
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                raise ValidationDomainError(f"{field_name} must be an integer")
+
+        def _to_price(value, field_name: str) -> Decimal:
+            if value is None:
+                raise ValidationDomainError(f"{field_name} is required")
+            try:
+                price = Decimal(str(value))
+            except (TypeError, ValueError, InvalidOperation):
+                raise ValidationDomainError(f"{field_name} must be a number")
+            if price <= 0:
+                raise ValidationDomainError(f"{field_name} must be greater than 0")
+            return price
+
+        def _add_months(day: date, months: int) -> date:
+            year = day.year + (day.month - 1 + months) // 12
+            month = (day.month - 1 + months) % 12 + 1
+            last_day = calendar.monthrange(year, month)[1]
+            return date(year, month, min(day.day, last_day))
 
         def _to_pk(value, field_name: str) -> int:
             if isinstance(value, int):
@@ -39,8 +69,25 @@ class AirlineFacade(FacadeBase):
             flight_data.get("destination_airport"), "destination_airport"
         )
 
-        if flight_data["remaining_tickets"] < 0:
-            raise ValidationDomainError("Ticket count cannot be negative")
+        economy_seats = _to_int(flight_data.get("economy_seats"), "economy_seats")
+        business_seats = _to_int(
+            flight_data.get("business_seats"), "business_seats"
+        )
+        economy_price = _to_price(flight_data.get("economy_price"), "economy_price")
+        business_price = _to_price(flight_data.get("business_price"), "business_price")
+
+        if economy_seats <= 0 or economy_seats % 6 != 0:
+            raise ValidationDomainError(
+                "Economy seats must be a positive multiple of 6"
+            )
+        if business_seats <= 0 or business_seats % 4 != 0:
+            raise ValidationDomainError(
+                "Business seats must be a positive multiple of 4"
+            )
+        if economy_price == business_price:
+            raise ValidationDomainError(
+                "Economy and business prices must be different"
+            )
 
         if flight_data["landing_time"] <= flight_data["departure_time"]:
             raise ValidationDomainError("Landing time must be after departure time.")
@@ -57,20 +104,91 @@ class AirlineFacade(FacadeBase):
         if origin_airport_id == destination_airport_id:
             raise ValidationDomainError("Origin and Destination cannot be the same.")
 
-        new_flight = Flight(
-            airline_company_id=self.airline_company.id,
-            origin_airport_id=origin_airport_id,
-            destination_airport_id=destination_airport_id,
-            departure_time=flight_data["departure_time"],
-            landing_time=flight_data["landing_time"],
-            remaining_tickets=flight_data["remaining_tickets"],
-        )
-        self.flight_repo.add(new_flight)
+        recurrence_frequency = flight_data.get("recurrence_frequency")
+        recurrence_end_date = flight_data.get("recurrence_end_date")
+        if recurrence_frequency:
+            if recurrence_end_date is None:
+                raise ValidationDomainError("recurrence_end_date is required")
+            if isinstance(recurrence_end_date, str):
+                try:
+                    recurrence_end_date = date.fromisoformat(recurrence_end_date)
+                except ValueError:
+                    raise ValidationDomainError("recurrence_end_date is invalid")
+
+            if recurrence_frequency not in {"daily", "every_2_days", "weekly", "monthly"}:
+                raise ValidationDomainError("recurrence_frequency is invalid")
+
+            max_end_date = _add_months(
+                timezone.localtime(flight_data["departure_time"]).date(), 3
+            )
+            if recurrence_end_date > max_end_date:
+                raise ValidationDomainError(
+                    "recurrence_end_date cannot be more than 3 months after departure"
+                )
+            if recurrence_end_date < timezone.localtime(
+                flight_data["departure_time"]
+            ).date():
+                raise ValidationDomainError(
+                    "recurrence_end_date cannot be before departure date"
+                )
+
+        total_seats = economy_seats + business_seats
+        duration = flight_data["landing_time"] - flight_data["departure_time"]
+
+        def _build_flight(departure_time, landing_time):
+            return Flight(
+                airline_company_id=self.airline_company.id,
+                origin_airport_id=origin_airport_id,
+                destination_airport_id=destination_airport_id,
+                departure_time=departure_time,
+                landing_time=landing_time,
+                remaining_tickets=total_seats,
+                economy_seats=economy_seats,
+                business_seats=business_seats,
+                remaining_economy_tickets=economy_seats,
+                remaining_business_tickets=business_seats,
+                economy_price=economy_price,
+                business_price=business_price,
+            )
+
+        created_flights = []
+        current_departure = flight_data["departure_time"]
+        current_landing = flight_data["landing_time"]
+
+        with transaction.atomic():
+            while True:
+                if recurrence_end_date and timezone.localtime(current_departure).date() > recurrence_end_date:
+                    break
+                new_flight = _build_flight(current_departure, current_landing)
+                self.flight_repo.add(new_flight)
+                created_flights.append(new_flight)
+
+                if not recurrence_frequency:
+                    break
+
+                if recurrence_frequency == "monthly":
+                    next_departure_date = _add_months(
+                        timezone.localtime(current_departure).date(), 1
+                    )
+                    current_departure = current_departure.replace(
+                        year=next_departure_date.year,
+                        month=next_departure_date.month,
+                        day=next_departure_date.day,
+                    )
+                else:
+                    days = 1
+                    if recurrence_frequency == "every_2_days":
+                        days = 2
+                    elif recurrence_frequency == "weekly":
+                        days = 7
+                    current_departure = current_departure + timedelta(days=days)
+
+                current_landing = current_departure + duration
 
         logger.info(
             f"Airline '{self.airline_company.name}' added a new flight from airport ID {origin_airport_id} to {destination_airport_id}."
         )
-        return new_flight
+        return created_flights if len(created_flights) > 1 else created_flights[0]
 
     def update_flight(self, flight_id, update_data):
         flight = self.flight_repo.get_by_id(flight_id)
@@ -81,6 +199,9 @@ class AirlineFacade(FacadeBase):
 
         if flight.departure_time <= timezone.now():
             raise ValidationDomainError("Cannot modify a flight that already departed.")
+
+        update_data.pop("recurrence_frequency", None)
+        update_data.pop("recurrence_end_date", None)
 
         def _to_pk(value, field_name: str) -> int:
             if isinstance(value, int):
@@ -105,8 +226,65 @@ class AirlineFacade(FacadeBase):
                 update_data.pop("destination_airport"), "destination_airport"
             )
 
-        if "remaining_tickets" in update_data and update_data["remaining_tickets"] < 0:
-            raise ValidationDomainError("Ticket count cannot be negative")
+        if "remaining_tickets" in update_data:
+            update_data.pop("remaining_tickets", None)
+
+        if "economy_seats" in update_data:
+            economy_seats = update_data["economy_seats"]
+            if economy_seats <= 0 or economy_seats % 6 != 0:
+                raise ValidationDomainError(
+                    "Economy seats must be a positive multiple of 6"
+                )
+            sold = flight.economy_seats - flight.remaining_economy_tickets
+            if economy_seats < sold:
+                raise ValidationDomainError(
+                    "Economy seats cannot be lower than already sold seats"
+                )
+
+        if "business_seats" in update_data:
+            business_seats = update_data["business_seats"]
+            if business_seats <= 0 or business_seats % 4 != 0:
+                raise ValidationDomainError(
+                    "Business seats must be a positive multiple of 4"
+                )
+            sold = flight.business_seats - flight.remaining_business_tickets
+            if business_seats < sold:
+                raise ValidationDomainError(
+                    "Business seats cannot be lower than already sold seats"
+                )
+
+        new_economy_seats = update_data.get("economy_seats", flight.economy_seats)
+        new_business_seats = update_data.get("business_seats", flight.business_seats)
+
+        if "economy_seats" in update_data and flight.remaining_economy_tickets > new_economy_seats:
+            raise ValidationDomainError(
+                "Economy seats cannot be lower than remaining economy tickets"
+            )
+        if "business_seats" in update_data and flight.remaining_business_tickets > new_business_seats:
+            raise ValidationDomainError(
+                "Business seats cannot be lower than remaining business tickets"
+            )
+
+        if "remaining_economy_tickets" in update_data:
+            remaining_economy = update_data["remaining_economy_tickets"]
+            if remaining_economy < 0 or remaining_economy > new_economy_seats:
+                raise ValidationDomainError(
+                    "remaining_economy_tickets must be between 0 and economy_seats"
+                )
+
+        if "remaining_business_tickets" in update_data:
+            remaining_business = update_data["remaining_business_tickets"]
+            if remaining_business < 0 or remaining_business > new_business_seats:
+                raise ValidationDomainError(
+                    "remaining_business_tickets must be between 0 and business_seats"
+                )
+
+        new_economy_price = update_data.get("economy_price", flight.economy_price)
+        new_business_price = update_data.get("business_price", flight.business_price)
+        if new_economy_price == new_business_price:
+            raise ValidationDomainError(
+                "Economy and business prices must be different"
+            )
 
         new_departure = update_data.get("departure_time", flight.departure_time)
         new_landing = update_data.get("landing_time", flight.landing_time)
@@ -128,6 +306,10 @@ class AirlineFacade(FacadeBase):
 
         for key, value in update_data.items():
             setattr(flight, key, value)
+
+        flight.remaining_tickets = (
+            flight.remaining_economy_tickets + flight.remaining_business_tickets
+        )
 
         logger.info(
             f"Airline '{self.airline_company.name}' updated flight ID {flight_id}."

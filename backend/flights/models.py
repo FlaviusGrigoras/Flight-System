@@ -24,6 +24,16 @@ class Flight(models.Model):
     departure_time = models.DateTimeField()
     landing_time = models.DateTimeField()
     remaining_tickets = models.IntegerField(validators=[MinValueValidator(0)])
+    economy_seats = models.IntegerField(validators=[MinValueValidator(0)], default=0)
+    business_seats = models.IntegerField(validators=[MinValueValidator(0)], default=0)
+    remaining_economy_tickets = models.IntegerField(
+        validators=[MinValueValidator(0)], default=0
+    )
+    remaining_business_tickets = models.IntegerField(
+        validators=[MinValueValidator(0)], default=0
+    )
+    economy_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    business_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
     def __str__(self):
         origin = self.origin_airport or "N/A"

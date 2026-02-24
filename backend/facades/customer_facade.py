@@ -15,7 +15,25 @@ class CustomerFacade(FacadeBase):
         self.ticket_repo = TicketRepository()
         self.customer = self.customer_repo.get_customer_by_username(user.username)
 
-    def purchase_ticket(self, flight_id):
+    def _assign_seat_no(self, flight, cabin_class):
+        if cabin_class == Ticket.CabinClass.BUSINESS:
+            seats_per_row = 4
+            letters = ["A", "B", "C", "D"]
+        else:
+            seats_per_row = 6
+            letters = ["A", "B", "C", "D", "E", "F"]
+
+        sold_count = (
+            Ticket.objects.filter(flight=flight, cabin_class=cabin_class)
+            .exclude(status=Ticket.Status.CANCELLED)
+            .count()
+        )
+        index = sold_count + 1
+        row = (index - 1) // seats_per_row + 1
+        letter = letters[(index - 1) % seats_per_row]
+        return f\"{row}{letter}\"
+
+    def purchase_ticket(self, flight_id, cabin_class=None):
         if not self.customer:
             raise ValidationDomainError("User is not a customer")
 
@@ -31,6 +49,28 @@ class CustomerFacade(FacadeBase):
             if flight.remaining_tickets <= 0:
                 raise ValidationDomainError("No tickets available for this flight")
 
+            if flight.economy_seats == 0 and flight.business_seats == 0:
+                flight.economy_seats = flight.remaining_tickets
+                flight.remaining_economy_tickets = flight.remaining_tickets
+                flight.remaining_business_tickets = 0
+
+            cabin_value = (cabin_class or Ticket.CabinClass.ECONOMY).upper()
+            if cabin_value not in Ticket.CabinClass.values:
+                raise ValidationDomainError("Invalid cabin class")
+
+            if cabin_value == Ticket.CabinClass.BUSINESS:
+                if flight.remaining_business_tickets <= 0:
+                    raise ValidationDomainError(
+                        "No business tickets available for this flight"
+                    )
+                flight.remaining_business_tickets -= 1
+            else:
+                if flight.remaining_economy_tickets <= 0:
+                    raise ValidationDomainError(
+                        "No economy tickets available for this flight"
+                    )
+                flight.remaining_economy_tickets -= 1
+
             existing_ticket = Ticket.objects.filter(
                 flight=flight, customer=self.customer
             ).exists()
@@ -40,10 +80,17 @@ class CustomerFacade(FacadeBase):
                     "You already purchased a ticket for this flight"
                 )
 
-            flight.remaining_tickets -= 1
+            flight.remaining_tickets = (
+                flight.remaining_economy_tickets + flight.remaining_business_tickets
+            )
             self.flight_repo.update(flight)
 
-            ticket = Ticket(flight=flight, customer=self.customer)
+            ticket = Ticket(
+                flight=flight,
+                customer=self.customer,
+                cabin_class=cabin_value,
+                seat_no=self._assign_seat_no(flight, cabin_value),
+            )
             self.ticket_repo.add(ticket)
 
             logger.info(
@@ -78,7 +125,14 @@ class CustomerFacade(FacadeBase):
             ticket.cancelled_at = timezone.now()
             ticket.save(update_fields=["status", "cancelled_at"])
 
-            ticket.flight.remaining_tickets += 1
+            if ticket.cabin_class == Ticket.CabinClass.BUSINESS:
+                ticket.flight.remaining_business_tickets += 1
+            else:
+                ticket.flight.remaining_economy_tickets += 1
+            ticket.flight.remaining_tickets = (
+                ticket.flight.remaining_economy_tickets
+                + ticket.flight.remaining_business_tickets
+            )
             self.flight_repo.update(ticket.flight)
 
             logger.info(

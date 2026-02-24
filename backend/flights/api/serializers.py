@@ -6,6 +6,16 @@ from accounts.models import AirlineCompany
 
 
 class FlightSerializer(serializers.ModelSerializer):
+    recurrence_frequency = serializers.ChoiceField(
+        choices=["daily", "every_2_days", "weekly", "monthly"],
+        required=False,
+        allow_null=True,
+        write_only=True,
+    )
+    recurrence_end_date = serializers.DateField(
+        required=False, allow_null=True, write_only=True
+    )
+
     class Meta:
         model = Flight
         fields = "__all__"
@@ -47,4 +57,10 @@ class FlightReadSerializer(serializers.ModelSerializer):
             "departure_time",
             "landing_time",
             "remaining_tickets",
+            "economy_seats",
+            "business_seats",
+            "remaining_economy_tickets",
+            "remaining_business_tickets",
+            "economy_price",
+            "business_price",
         ]

@@ -12,6 +12,7 @@ class TicketPurchaseAPIView(APIView):
 
     def post(self, request):
         flight_id = request.data.get("flight_id")
+        cabin_class = request.data.get("cabin_class")
         if not flight_id:
             return Response(
                 {"error": "flight_id is required"}, status=status.HTTP_400_BAD_REQUEST
@@ -24,7 +25,7 @@ class TicketPurchaseAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         facade = CustomerFacade(request.user)
-        ticket = facade.purchase_ticket(flight_id)
+        ticket = facade.purchase_ticket(flight_id, cabin_class=cabin_class)
 
         return Response(TicketSerializer(ticket).data, status=status.HTTP_201_CREATED)
 

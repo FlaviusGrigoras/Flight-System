@@ -100,6 +100,11 @@ class AirlineFlightsAPIView(APIView):
         serializer.is_valid(raise_exception=True)
 
         new_flight = facade.add_flight(serializer.validated_data)
+        if isinstance(new_flight, list):
+            return Response(
+                FlightReadSerializer(new_flight, many=True).data,
+                status=status.HTTP_201_CREATED,
+            )
         return Response(
             FlightReadSerializer(new_flight).data, status=status.HTTP_201_CREATED
         )

@@ -6,11 +6,18 @@ class Ticket(models.Model):
         ACTIVE = "ACTIVE", "Active"
         CANCELLED = "CANCELLED", "Cancelled"
 
+    class CabinClass(models.TextChoices):
+        ECONOMY = "ECONOMY", "Economy"
+        BUSINESS = "BUSINESS", "Business"
+
     flight = models.ForeignKey("flights.Flight", on_delete=models.CASCADE)
     customer = models.ForeignKey("accounts.Customer", on_delete=models.CASCADE)
 
     status = models.CharField(
         max_length=16, choices=Status.choices, default=Status.ACTIVE
+    )
+    cabin_class = models.CharField(
+        max_length=16, choices=CabinClass.choices, default=CabinClass.ECONOMY
     )
     purchased_at = models.DateTimeField(auto_now_add=True)
     cancelled_at = models.DateTimeField(null=True, blank=True)
