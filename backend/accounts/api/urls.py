@@ -5,6 +5,12 @@ from .views import (
     RegisterCustomerAPIView,
     RegisterAirlineAPIView,
     CurrentUserAPIView,
+    AdminCustomerListAPIView,
+    AdminCustomerDetailAPIView,
+    AdminAirlineListAPIView,
+    AdminAirlineDetailAPIView,
+    AdminAdministratorListCreateAPIView,
+    AdminAdministratorDetailAPIView,
 )
 
 urlpatterns = [
@@ -22,5 +28,36 @@ urlpatterns = [
         "register/airline/",
         RegisterAirlineAPIView.as_view(),
         name="api-register-airline",
+    ),
+    # ADMIN
+    path(
+        "admin/customers/",
+        AdminCustomerListAPIView.as_view(),
+        name="api-admin-customers",
+    ),
+    path(
+        "admin/customers/<int:pk>/",
+        AdminCustomerDetailAPIView.as_view(),
+        name="api-admin-customer-detail",
+    ),
+    path(
+        "admin/airlines/",
+        AdminAirlineListAPIView.as_view(),
+        name="api-admin-airlines",
+    ),
+    path(
+        "admin/airlines/<int:pk>/",
+        AdminAirlineDetailAPIView.as_view(),
+        name="api-admin-airline-detail",
+    ),
+    path(
+        "admin/administrators/",
+        AdminAdministratorListCreateAPIView.as_view(),
+        name="api-admin-administrators",
+    ),
+    path(
+        "admin/administrators/<int:pk>/",
+        AdminAdministratorDetailAPIView.as_view(),
+        name="api-admin-administrator-detail",
     ),
 ]

@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 
-from accounts.models import AirlineCompany
+from accounts.models import AirlineCompany, Administrator, Customer
 from geo.models import Country
 
 User = get_user_model()
@@ -70,3 +70,54 @@ class CurrentUserSerializer(serializers.ModelSerializer):
         if hasattr(obj, "customer_profile"):
             return "customer"
         return "anonymous"
+
+
+class UserSummarySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["id", "username", "email", "is_superuser", "is_staff"]
+
+
+class CustomerAdminSerializer(serializers.ModelSerializer):
+    user = UserSummarySerializer(read_only=True)
+
+    class Meta:
+        model = Customer
+        fields = ["id", "first_name", "last_name", "user"]
+
+
+class AirlineAdminSerializer(serializers.ModelSerializer):
+    user = UserSummarySerializer(read_only=True)
+    country_name = serializers.CharField(source="country.name", read_only=True)
+    country_iso2 = serializers.CharField(source="country.iso2", read_only=True)
+
+    class Meta:
+        model = AirlineCompany
+        fields = ["id", "name", "country", "country_name", "country_iso2", "user"]
+
+
+class AdministratorReadSerializer(serializers.ModelSerializer):
+    user = UserSummarySerializer(read_only=True)
+
+    class Meta:
+        model = Administrator
+        fields = ["id", "first_name", "last_name", "user"]
+
+
+class AdministratorCreateSerializer(serializers.Serializer):
+    username = serializers.CharField(
+        max_length=150,
+        required=False,
+        allow_blank=False,
+        validators=[UniqueValidator(queryset=User.objects.all())],
+    )
+    password = serializers.CharField(min_length=8, write_only=True, required=True)
+    email = serializers.EmailField(required=True)
+    first_name = serializers.CharField(max_length=100, required=True)
+    last_name = serializers.CharField(max_length=100, required=True)
+
+    def validate_email(self, value):
+        value = value.strip().lower()
+        if User.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError("Email is already registered.")
+        return value

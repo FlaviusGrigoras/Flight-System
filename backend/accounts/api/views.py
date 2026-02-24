@@ -3,31 +3,18 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth import get_user_model
-import uuid
 from facades.anonymous_facade import AnonymousFacade
+from facades.administrator_facade import AdministratorFacade
 from .serializers import (
     LoginRequestSerializer,
     CustomerRegistrationSerializer,
     AirlineRegistrationSerializer,
     CurrentUserSerializer,
+    CustomerAdminSerializer,
+    AirlineAdminSerializer,
+    AdministratorReadSerializer,
+    AdministratorCreateSerializer,
 )
-
-User = get_user_model()
-
-
-def _generate_unique_username_from_email(email: str) -> str:
-    base = (email or "").strip().lower()
-    base = base[:150]
-
-    if not User.objects.filter(username=base).exists():
-        return base
-
-    while True:
-        suffix = "-" + uuid.uuid4().hex[:8]
-        candidate = base[: 150 - len(suffix)] + suffix
-        if not User.objects.filter(username=candidate).exists():
-            return candidate
 
 
 class LoginAPIView(APIView):
@@ -62,8 +49,9 @@ class RegisterCustomerAPIView(APIView):
         serializer.is_valid(raise_exception=True)
 
         data = serializer.validated_data
+        facade = AnonymousFacade()
 
-        username = _generate_unique_username_from_email(data["email"])
+        username = facade.generate_unique_username_from_email(data["email"])
         user_data = {
             "username": username,
             "password": data["password"],
@@ -75,7 +63,6 @@ class RegisterCustomerAPIView(APIView):
             "last_name": data["last_name"],
         }
 
-        facade = AnonymousFacade()
         customer = facade.add_customer(user_data, customer_data)
 
         return Response(
@@ -116,3 +103,82 @@ class CurrentUserAPIView(APIView):
     def get(self, request):
         serializer = CurrentUserSerializer(request.user)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class AdminCustomerListAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        facade = AdministratorFacade(request.user)
+        customers = facade.get_all_customers()
+        serializer = CustomerAdminSerializer(customers, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class AdminCustomerDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, pk: int):
+        facade = AdministratorFacade(request.user)
+        facade.remove_customer(pk)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class AdminAirlineListAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        facade = AdministratorFacade(request.user)
+        airlines = facade.get_all_airlines()
+        serializer = AirlineAdminSerializer(airlines, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class AdminAirlineDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, pk: int):
+        facade = AdministratorFacade(request.user)
+        facade.remove_airline(pk)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class AdminAdministratorListCreateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        facade = AdministratorFacade(request.user)
+        administrators = facade.get_all_administrators()
+        serializer = AdministratorReadSerializer(administrators, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        serializer = AdministratorCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        facade = AdministratorFacade(request.user)
+
+        username = data.get("username") or facade.generate_unique_username_from_email(
+            data["email"]
+        )
+        user_data = {
+            "username": username,
+            "password": data["password"],
+            "email": data["email"],
+        }
+        admin_data = {"first_name": data["first_name"], "last_name": data["last_name"]}
+
+        new_admin = facade.add_administrator(user_data, admin_data)
+
+        return Response(
+            AdministratorReadSerializer(new_admin).data, status=status.HTTP_201_CREATED
+        )
+
+
+class AdminAdministratorDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, pk: int):
+        facade = AdministratorFacade(request.user)
+        facade.remove_administrator(pk)
+        return Response(status=status.HTTP_204_NO_CONTENT)
