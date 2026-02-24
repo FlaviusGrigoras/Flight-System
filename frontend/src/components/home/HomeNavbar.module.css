@@ -1,0 +1,24 @@
+.bar {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  box-shadow: 0 1px 12px rgba(15, 23, 42, 0.08) !important;
+}
+
+.toolbar {
+  min-height: 72px;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.title {
+  cursor: pointer;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+}
+

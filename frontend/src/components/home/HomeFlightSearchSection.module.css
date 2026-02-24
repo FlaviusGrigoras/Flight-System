@@ -1,0 +1,117 @@
+.container {
+  padding-top: 40px;
+  padding-bottom: 40px;
+}
+
+.searchCard {
+  border: 1px solid #d6e3f3;
+  border-radius: 20px !important;
+  background: linear-gradient(145deg, #ffffff, #f6faff);
+  margin-bottom: 24px;
+}
+
+.searchTitle {
+  margin-bottom: 20px !important;
+  font-weight: 700 !important;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 960px) {
+  .grid {
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+  }
+}
+
+.fieldCard {
+  border: 1px solid #e0e7f0;
+  border-radius: 14px !important;
+  background: #fbfdff !important;
+}
+
+.label {
+  display: block;
+  margin-bottom: 8px !important;
+  color: #5a6b7f;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.passengersCard {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.searchActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.loadingBox {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.resultsList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.resultCard {
+  border: 1px solid #dae5f5;
+  border-radius: 16px !important;
+  padding: 16px;
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  gap: 16px;
+  align-items: center;
+}
+
+@media (max-width: 780px) {
+  .resultCard {
+    grid-template-columns: 1fr;
+  }
+}
+
+.logoBox {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #0f3d75;
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+}
+
+.routeBox {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.routeTimes {
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+}
+
+.priceBox {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+
+.price {
+  font-weight: 800 !important;
+}
+

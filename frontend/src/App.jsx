@@ -6,6 +6,7 @@ import { AuthProvider } from "./context/AuthProvider";
 import LoginPage from "./pages/LoginPage";
 import AirlineDashboard from "./pages/AirlineDashboard";
 import RegisterPage from "./pages/RegisterPage";
+import BuyPage from "./pages/BuyPage";
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/customer/dashboard" element={<CustomerDashboard />} />
             <Route path="/airline/dashboard" element={<AirlineDashboard />} />
+            <Route path="/buy/:flightId" element={<BuyPage />} />
           </Routes>
         </div>
       </Router>

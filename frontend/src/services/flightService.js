@@ -6,6 +6,23 @@ export const flightService = {
     return response.data;
   },
 
+  searchFlights: async ({ originCountryId, destinationCountryId, date } = {}) => {
+    const params = {};
+    if (originCountryId != null && originCountryId !== "")
+      params.origin_country_id = originCountryId;
+    if (destinationCountryId != null && destinationCountryId !== "")
+      params.destination_country_id = destinationCountryId;
+    if (date != null && date !== "") params.date = date;
+
+    const response = await apiClient.get("/flights/", { params });
+    return response.data;
+  },
+
+  getFlightById: async (flightId) => {
+    const response = await apiClient.get(`/flights/${flightId}/`);
+    return response.data;
+  },
+
   getMyFlights: async () => {
     const response = await apiClient.get("/flights/my-flights/");
     return response.data;

@@ -1,4 +1,8 @@
+import CustomerDashboardView from "../components/customerDashboard/CustomerDashboardView";
+import { useCustomerDashboard } from "../hooks/useCustomerDashboard";
+
 export default function CustomerDashboard() {
-  return <div>Customer dashboard</div>;
+  const vm = useCustomerDashboard();
+  return <CustomerDashboardView {...vm} />;
 }
 
