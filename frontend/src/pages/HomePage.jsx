@@ -14,7 +14,7 @@ export default function HomePage() {
       {user ? (
         <div>
           <p>
-            Hello {user.username}! You are logged in with the role: {user.role}
+            Hello {user.email}! You are logged in with the role: {user.role}
           </p>
           {user.role === "airline" && (
             <p>
@@ -28,6 +28,7 @@ export default function HomePage() {
       ) : (
         <div>
           <p>You are not logged in! Please log in</p>
+          <Link to="/login">Login</Link>
         </div>
       )}
     </div>

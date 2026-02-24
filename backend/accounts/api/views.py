@@ -3,6 +3,8 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.contrib.auth import get_user_model
+import uuid
 from facades.anonymous_facade import AnonymousFacade
 from .serializers import (
     LoginRequestSerializer,
@@ -10,6 +12,22 @@ from .serializers import (
     AirlineRegistrationSerializer,
     CurrentUserSerializer,
 )
+
+User = get_user_model()
+
+
+def _generate_unique_username_from_email(email: str) -> str:
+    base = (email or "").strip().lower()
+    base = base[:150]
+
+    if not User.objects.filter(username=base).exists():
+        return base
+
+    while True:
+        suffix = "-" + uuid.uuid4().hex[:8]
+        candidate = base[: 150 - len(suffix)] + suffix
+        if not User.objects.filter(username=candidate).exists():
+            return candidate
 
 
 class LoginAPIView(APIView):
@@ -19,7 +37,7 @@ class LoginAPIView(APIView):
 
         facade = AnonymousFacade()
         user = facade.login(
-            username=serializer.validated_data["username"],
+            email=serializer.validated_data["email"],
             password=serializer.validated_data["password"],
         )
         refresh = RefreshToken.for_user(user)
@@ -45,8 +63,9 @@ class RegisterCustomerAPIView(APIView):
 
         data = serializer.validated_data
 
+        username = _generate_unique_username_from_email(data["email"])
         user_data = {
-            "username": data["username"],
+            "username": username,
             "password": data["password"],
             "email": data["email"],
         }
@@ -54,8 +73,6 @@ class RegisterCustomerAPIView(APIView):
         customer_data = {
             "first_name": data["first_name"],
             "last_name": data["last_name"],
-            "address": data["address"],
-            "phone_no": data["phone_no"],
         }
 
         facade = AnonymousFacade()

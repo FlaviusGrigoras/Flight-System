@@ -108,7 +108,7 @@ export default function AirlineDashboard() {
       try {
         const data = await geoService.getCountries();
         if (!cancelled) setCountries(data);
-      } catch (e) {
+      } catch {
         if (!cancelled) setError("Failed to load countries.");
       } finally {
         if (!cancelled) setIsLoadingCountries(false);
@@ -174,7 +174,7 @@ export default function AirlineDashboard() {
           limit: 500,
         });
         if (!cancelled) setOriginAirports(data);
-      } catch (e) {
+      } catch {
         if (!cancelled) setError("Failed to load origin airports.");
       }
     };
@@ -197,7 +197,7 @@ export default function AirlineDashboard() {
           limit: 500,
         });
         if (!cancelled) setDestinationAirports(data);
-      } catch (e) {
+      } catch {
         if (!cancelled) setError("Failed to load destination airports.");
       }
     };
@@ -644,7 +644,7 @@ export default function AirlineDashboard() {
                     </TableCell>
                     <TableCell>
                       {t.customer?.first_name} {t.customer?.last_name} (
-                      {t.customer?.username})
+                      {t.customer?.email})
                     </TableCell>
                     <TableCell>{t.status}</TableCell>
                     <TableCell>

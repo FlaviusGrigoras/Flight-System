@@ -24,8 +24,6 @@ class AirlineCompany(models.Model):
 class Customer(models.Model):
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
-    address = models.CharField(max_length=100)
-    phone_no = models.CharField(max_length=15, unique=True)
     user = models.OneToOneField(
         User, on_delete=models.CASCADE, related_name="customer_profile"
     )

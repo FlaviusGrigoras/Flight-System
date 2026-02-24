@@ -21,7 +21,7 @@ class AirlineCompanyAdmin(admin.ModelAdmin):
 @admin.register(Customer)
 class CustomerAdmin(admin.ModelAdmin):
     list_display = ("first_name", "last_name", "user")
-    search_fields = ("first_name", "last_name", "phone_no")
+    search_fields = ("first_name", "last_name")
 
 
 admin.site.register(Administrator)
