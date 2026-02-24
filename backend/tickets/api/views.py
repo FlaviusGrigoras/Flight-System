@@ -2,11 +2,9 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from core.exceptions import ForbiddenError
 from facades.airline_facade import AirlineFacade
 from facades.customer_facade import CustomerFacade
 from .serializers import TicketSerializer, TicketSoldSerializer
-from tickets.repositories.ticket_repository import TicketRepository
 
 
 class TicketPurchaseAPIView(APIView):
@@ -64,11 +62,5 @@ class AirlineSoldTicketsAPIView(APIView):
             flight_id = int(flight_id)
 
         facade = AirlineFacade(request.user.username)
-        if not facade.airline_company:
-            raise ForbiddenError("User is not an airline company")
-
-        repo = TicketRepository()
-        tickets = repo.get_tickets_by_airline(
-            airline_company_id=facade.airline_company.id, flight_id=flight_id
-        )
+        tickets = facade.get_sold_tickets(flight_id=flight_id)
         return Response(TicketSoldSerializer(tickets, many=True).data)

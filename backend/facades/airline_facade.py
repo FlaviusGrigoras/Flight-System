@@ -2,6 +2,7 @@ from facades.base_facade import FacadeBase
 from core.exceptions import ForbiddenError, ValidationDomainError, NotFoundError
 from django.utils import timezone
 from flights.models import Flight
+from tickets.repositories.ticket_repository import TicketRepository
 import logging
 
 logger = logging.getLogger("flights")
@@ -11,6 +12,7 @@ class AirlineFacade(FacadeBase):
     def __init__(self, user_id):
         super().__init__()
         self.airline_company = self.airline_repo.get_airline_by_username(user_id)
+        self.ticket_repo = TicketRepository()
 
     def _validate_airline_ownership(self, fligt):
         if fligt.airline_company_id != self.airline_company.id:
@@ -153,3 +155,10 @@ class AirlineFacade(FacadeBase):
         if not self.airline_company:
             raise ForbiddenError("Not an airline")
         return self.flight_repo.get_flights_by_airline_id(self.airline_company.id)
+
+    def get_sold_tickets(self, flight_id=None):
+        if not self.airline_company:
+            raise ForbiddenError("User is not an airline company")
+        return self.ticket_repo.get_tickets_by_airline(
+            airline_company_id=self.airline_company.id, flight_id=flight_id
+        )
