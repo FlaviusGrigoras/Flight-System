@@ -31,7 +31,7 @@ class CustomerFacade(FacadeBase):
         index = sold_count + 1
         row = (index - 1) // seats_per_row + 1
         letter = letters[(index - 1) % seats_per_row]
-        return f\"{row}{letter}\"
+        return f"{row}{letter}"
 
     def purchase_ticket(self, flight_id, cabin_class=None):
         if not self.customer:
