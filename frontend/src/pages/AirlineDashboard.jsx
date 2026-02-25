@@ -20,6 +20,7 @@ import {
 } from "@mui/material";
 
 import { geoService } from "../services/geoService";
+import { airlineService } from "../services/airlineService";
 import { flightService } from "../services/flightService";
 import { ticketService } from "../services/ticketService";
 import { useAuth } from "../context/AuthContext";
@@ -62,6 +63,9 @@ const getApiErrorMessage = (err, fallback) => {
   );
 };
 
+const DEPARTURE_IMAGE_SRC = "/airplane-depart.png";
+const ARRIVAL_IMAGE_SRC = "/airplane-arrival.png";
+
 export default function AirlineDashboard() {
   const { user } = useAuth();
 
@@ -69,6 +73,13 @@ export default function AirlineDashboard() {
 
   const [countries, setCountries] = useState([]);
   const [isLoadingCountries, setIsLoadingCountries] = useState(true);
+
+  const [isLoadingCompany, setIsLoadingCompany] = useState(false);
+  const [companyName, setCompanyName] = useState("");
+  const [companyCountryId, setCompanyCountryId] = useState("");
+  const [companyWebsite, setCompanyWebsite] = useState("");
+  const [companyLogoUrl, setCompanyLogoUrl] = useState(null);
+  const [companyLogoFile, setCompanyLogoFile] = useState(null);
 
   const [originCountryId, setOriginCountryId] = useState("");
   const [originAirports, setOriginAirports] = useState([]);
@@ -82,7 +93,12 @@ export default function AirlineDashboard() {
 
   const [departureLocal, setDepartureLocal] = useState("");
   const [landingLocal, setLandingLocal] = useState("");
-  const [remainingTickets, setRemainingTickets] = useState(0);
+  const [economySeats, setEconomySeats] = useState(0);
+  const [businessSeats, setBusinessSeats] = useState(0);
+  const [economyPrice, setEconomyPrice] = useState("");
+  const [businessPrice, setBusinessPrice] = useState("");
+  const [recurrenceFrequency, setRecurrenceFrequency] = useState("");
+  const [recurrenceEndDate, setRecurrenceEndDate] = useState("");
 
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -93,13 +109,19 @@ export default function AirlineDashboard() {
   const [selectedFlightId, setSelectedFlightId] = useState("");
   const [editDepartureLocal, setEditDepartureLocal] = useState("");
   const [editLandingLocal, setEditLandingLocal] = useState("");
-  const [editRemainingTickets, setEditRemainingTickets] = useState(0);
+  const [editEconomySeats, setEditEconomySeats] = useState(0);
+  const [editBusinessSeats, setEditBusinessSeats] = useState(0);
+  const [editRemainingEconomyTickets, setEditRemainingEconomyTickets] = useState(0);
+  const [editRemainingBusinessTickets, setEditRemainingBusinessTickets] = useState(0);
+  const [editEconomyPrice, setEditEconomyPrice] = useState("");
+  const [editBusinessPrice, setEditBusinessPrice] = useState("");
 
   const [soldTickets, setSoldTickets] = useState([]);
   const [isLoadingSoldTickets, setIsLoadingSoldTickets] = useState(false);
   const [soldTicketsFlightId, setSoldTicketsFlightId] = useState("");
 
   const isAirline = user?.role === "airline";
+  const headerCompanyName = companyName?.trim() || user?.airline_company?.name;
 
   useEffect(() => {
     let cancelled = false;
@@ -119,6 +141,23 @@ export default function AirlineDashboard() {
       cancelled = true;
     };
   }, []);
+
+  const refreshCompanyDetails = async () => {
+    setIsLoadingCompany(true);
+    try {
+      const data = await airlineService.getMyAirlineProfile();
+      setCompanyName(data?.name ?? "");
+      setCompanyCountryId(data?.country != null ? String(data.country) : "");
+      setCompanyWebsite(data?.website ?? "");
+      setCompanyLogoUrl(data?.logo_url ?? null);
+      setCompanyLogoFile(null);
+      setError(null);
+    } catch (e) {
+      setError(getApiErrorMessage(e, "Failed to load company details."));
+    } finally {
+      setIsLoadingCompany(false);
+    }
+  };
 
   const refreshMyFlights = async () => {
     setIsLoadingMyFlights(true);
@@ -150,6 +189,7 @@ export default function AirlineDashboard() {
 
   useEffect(() => {
     if (!isAirline) return;
+    refreshCompanyDetails();
     refreshMyFlights();
     refreshSoldTickets();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -214,7 +254,10 @@ export default function AirlineDashboard() {
       destinationAirportId &&
       departureLocal &&
       landingLocal &&
-      Number.isFinite(Number(remainingTickets))
+      Number.isFinite(Number(economySeats)) &&
+      Number.isFinite(Number(businessSeats)) &&
+      Number.isFinite(Number(economyPrice)) &&
+      Number.isFinite(Number(businessPrice))
     );
   }, [
     isAirline,
@@ -222,7 +265,10 @@ export default function AirlineDashboard() {
     destinationAirportId,
     departureLocal,
     landingLocal,
-    remainingTickets,
+    economySeats,
+    businessSeats,
+    economyPrice,
+    businessPrice,
     ]);
 
   const handleCreateFlight = async (e) => {
@@ -237,7 +283,16 @@ export default function AirlineDashboard() {
         destination_airport: Number(destinationAirportId),
         departure_time: new Date(departureLocal).toISOString(),
         landing_time: new Date(landingLocal).toISOString(),
-        remaining_tickets: Number(remainingTickets),
+        economy_seats: Number(economySeats),
+        business_seats: Number(businessSeats),
+        economy_price: Number(economyPrice),
+        business_price: Number(businessPrice),
+        ...(recurrenceFrequency
+          ? {
+              recurrence_frequency: recurrenceFrequency,
+              recurrence_end_date: recurrenceEndDate || null,
+            }
+          : {}),
       };
       await flightService.createFlight(payload);
       setSuccess("Flight created.");
@@ -255,7 +310,12 @@ export default function AirlineDashboard() {
     if (!f) return;
     setEditDepartureLocal(toLocalInputValue(f.departure_time));
     setEditLandingLocal(toLocalInputValue(f.landing_time));
-    setEditRemainingTickets(f.remaining_tickets ?? 0);
+    setEditEconomySeats(f.economy_seats ?? 0);
+    setEditBusinessSeats(f.business_seats ?? 0);
+    setEditRemainingEconomyTickets(f.remaining_economy_tickets ?? 0);
+    setEditRemainingBusinessTickets(f.remaining_business_tickets ?? 0);
+    setEditEconomyPrice(f.economy_price ?? "");
+    setEditBusinessPrice(f.business_price ?? "");
   };
 
   const handleUpdateFlight = async (e) => {
@@ -268,13 +328,44 @@ export default function AirlineDashboard() {
       const payload = {
         departure_time: new Date(editDepartureLocal).toISOString(),
         landing_time: new Date(editLandingLocal).toISOString(),
-        remaining_tickets: Number(editRemainingTickets),
+        economy_seats: Number(editEconomySeats),
+        business_seats: Number(editBusinessSeats),
+        remaining_economy_tickets: Number(editRemainingEconomyTickets),
+        remaining_business_tickets: Number(editRemainingBusinessTickets),
+        economy_price: Number(editEconomyPrice),
+        business_price: Number(editBusinessPrice),
       };
       await flightService.updateMyFlight(selectedFlightId, payload);
       setSuccess("Flight updated.");
       await refreshMyFlights();
     } catch (err) {
       setError(getApiErrorMessage(err, "Failed to update flight."));
+    }
+  };
+
+  const handleSaveCompanyDetails = async (e) => {
+    e.preventDefault();
+    setError(null);
+    setSuccess(null);
+    setIsSubmitting(true);
+    try {
+      const form = new FormData();
+      if (companyName.trim()) form.append("name", companyName.trim());
+      if (companyCountryId) form.append("country", String(companyCountryId));
+      if (companyWebsite?.trim()) form.append("website", companyWebsite.trim());
+      if (companyLogoFile) form.append("logo", companyLogoFile);
+
+      const updated = await airlineService.updateMyAirlineProfile(form);
+      setCompanyName(updated?.name ?? "");
+      setCompanyCountryId(updated?.country != null ? String(updated.country) : "");
+      setCompanyWebsite(updated?.website ?? "");
+      setCompanyLogoUrl(updated?.logo_url ?? null);
+      setCompanyLogoFile(null);
+      setSuccess("Company details saved.");
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Failed to save company details."));
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -307,8 +398,47 @@ export default function AirlineDashboard() {
     <Container maxWidth="md">
       <Box sx={{ mt: 4 }}>
         <Typography variant="h5" sx={{ mb: 2 }}>
-          Airline dashboard
+          Airline dashboard{headerCompanyName ? ` - ${headerCompanyName}` : ""}
         </Typography>
+
+        <Box
+          sx={{
+            mb: 2,
+            px: 2,
+            py: 1.5,
+            borderRadius: 2,
+            border: "1px solid #d6e3f3",
+            background: "linear-gradient(130deg, #f2f8ff, #edf6ff)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 2,
+          }}
+        >
+          <Box
+            component="img"
+            src={DEPARTURE_IMAGE_SRC}
+            alt="Airplane departure"
+            sx={{ width: { xs: 34, sm: 46 }, height: { xs: 34, sm: 46 } }}
+          />
+          <Box sx={{ textAlign: "center" }}>
+            <Typography
+              variant="overline"
+              sx={{ display: "block", color: "text.secondary", lineHeight: 1.3 }}
+            >
+              Airline Operations
+            </Typography>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+              Plan departures and monitor arrivals
+            </Typography>
+          </Box>
+          <Box
+            component="img"
+            src={ARRIVAL_IMAGE_SRC}
+            alt="Airplane arrival"
+            sx={{ width: { xs: 34, sm: 46 }, height: { xs: 34, sm: 46 } }}
+          />
+        </Box>
 
         {(error || success) && (
           <Alert severity={error ? "error" : "success"} sx={{ mb: 2 }}>
@@ -317,12 +447,104 @@ export default function AirlineDashboard() {
         )}
 
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
+          <Tab label="Company details" />
           <Tab label="Create flight" />
           <Tab label="Manage flights" />
           <Tab label="Tickets sold" />
         </Tabs>
 
         {tab === 0 && (
+          <Box component="form" onSubmit={handleSaveCompanyDetails}>
+            <Box sx={{ display: "flex", gap: 2, alignItems: "center", mb: 2 }}>
+              <Typography variant="h6">Company details</Typography>
+              <Button
+                type="button"
+                variant="outlined"
+                onClick={refreshCompanyDetails}
+                disabled={isLoadingCompany}
+              >
+                Refresh
+              </Button>
+            </Box>
+
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 2,
+                mb: 2,
+              }}
+            >
+              <TextField
+                label="Company name"
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+                fullWidth
+                required
+              />
+              <FormControl fullWidth disabled={isLoadingCountries}>
+                <InputLabel id="company-country-label">Country</InputLabel>
+                <Select
+                  labelId="company-country-label"
+                  label="Country"
+                  value={companyCountryId}
+                  onChange={(e) => setCompanyCountryId(e.target.value)}
+                >
+                  {countries.map((c) => (
+                    <MenuItem key={c.id} value={String(c.id)}>
+                      {c.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <TextField
+                label="Website"
+                value={companyWebsite}
+                onChange={(e) => setCompanyWebsite(e.target.value)}
+                fullWidth
+                placeholder="https://example.com"
+              />
+
+              <Box>
+                <Button variant="outlined" component="label" fullWidth>
+                  {companyLogoFile ? "Logo selected" : "Upload logo"}
+                  <input
+                    type="file"
+                    hidden
+                    accept="image/*"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0] ?? null;
+                      setCompanyLogoFile(f);
+                      if (f) setCompanyLogoUrl(URL.createObjectURL(f));
+                    }}
+                  />
+                </Button>
+                {companyLogoUrl && (
+                  <Box
+                    component="img"
+                    src={companyLogoUrl}
+                    alt="Company logo"
+                    sx={{
+                      mt: 1,
+                      width: "100%",
+                      maxHeight: 140,
+                      objectFit: "contain",
+                      borderRadius: 1,
+                      border: "1px solid rgba(0,0,0,0.12)",
+                    }}
+                  />
+                )}
+              </Box>
+            </Box>
+
+            <Button type="submit" variant="contained" disabled={isSubmitting}>
+              Save company details
+            </Button>
+          </Box>
+        )}
+
+        {tab === 1 && (
           <Box component="form" onSubmit={handleCreateFlight}>
             <Typography variant="h6" sx={{ mb: 1 }}>
               Create flight
@@ -417,7 +639,7 @@ export default function AirlineDashboard() {
             <Box
               sx={{
                 display: "grid",
-                gridTemplateColumns: "1fr 1fr 1fr",
+                gridTemplateColumns: "1fr 1fr 1fr 1fr",
                 gap: 2,
                 mb: 2,
               }}
@@ -441,13 +663,87 @@ export default function AirlineDashboard() {
                 required
               />
               <TextField
-                label="Remaining tickets"
+                label="Economy seats"
                 type="number"
-                value={remainingTickets}
-                onChange={(e) => setRemainingTickets(e.target.value)}
+                value={economySeats}
+                onChange={(e) => setEconomySeats(e.target.value)}
                 fullWidth
                 required
-                inputProps={{ min: 0 }}
+                inputProps={{ min: 0, step: 1 }}
+              />
+              <TextField
+                label="Business seats"
+                type="number"
+                value={businessSeats}
+                onChange={(e) => setBusinessSeats(e.target.value)}
+                fullWidth
+                required
+                inputProps={{ min: 0, step: 1 }}
+              />
+            </Box>
+
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 2,
+                mb: 2,
+              }}
+            >
+              <TextField
+                label="Economy price"
+                type="number"
+                value={economyPrice}
+                onChange={(e) => setEconomyPrice(e.target.value)}
+                fullWidth
+                required
+                inputProps={{ min: 0, step: "0.01" }}
+              />
+              <TextField
+                label="Business price"
+                type="number"
+                value={businessPrice}
+                onChange={(e) => setBusinessPrice(e.target.value)}
+                fullWidth
+                required
+                inputProps={{ min: 0, step: "0.01" }}
+              />
+            </Box>
+
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 2,
+                mb: 2,
+              }}
+            >
+              <FormControl fullWidth>
+                <InputLabel id="recurrence-frequency-label">
+                  Recurrence (optional)
+                </InputLabel>
+                <Select
+                  labelId="recurrence-frequency-label"
+                  label="Recurrence (optional)"
+                  value={recurrenceFrequency}
+                  onChange={(e) => setRecurrenceFrequency(e.target.value)}
+                >
+                  <MenuItem value="">No recurrence</MenuItem>
+                  <MenuItem value="daily">Daily</MenuItem>
+                  <MenuItem value="every_2_days">Every 2 days</MenuItem>
+                  <MenuItem value="weekly">Weekly</MenuItem>
+                  <MenuItem value="monthly">Monthly</MenuItem>
+                </Select>
+              </FormControl>
+              <TextField
+                label="Recurrence end date"
+                type="date"
+                value={recurrenceEndDate}
+                onChange={(e) => setRecurrenceEndDate(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                fullWidth
+                disabled={!recurrenceFrequency}
+                required={Boolean(recurrenceFrequency)}
               />
             </Box>
 
@@ -461,7 +757,7 @@ export default function AirlineDashboard() {
           </Box>
         )}
 
-        {tab === 1 && (
+        {tab === 2 && (
           <Box>
             <Box sx={{ display: "flex", gap: 2, alignItems: "center", mb: 2 }}>
               <Typography variant="h6">Manage flights</Typography>
@@ -483,6 +779,8 @@ export default function AirlineDashboard() {
                   <TableCell>Destination</TableCell>
                   <TableCell>Departure</TableCell>
                   <TableCell>Landing</TableCell>
+                  <TableCell>Economy</TableCell>
+                  <TableCell>Business</TableCell>
                   <TableCell>Remaining</TableCell>
                   <TableCell />
                 </TableRow>
@@ -508,6 +806,12 @@ export default function AirlineDashboard() {
                     </TableCell>
                     <TableCell>
                       {formatDateTimeGB(f.landing_time)}
+                    </TableCell>
+                    <TableCell>
+                      {f.remaining_economy_tickets}/{f.economy_seats}
+                    </TableCell>
+                    <TableCell>
+                      {f.remaining_business_tickets}/{f.business_seats}
                     </TableCell>
                     <TableCell>{f.remaining_tickets}</TableCell>
                     <TableCell>
@@ -540,7 +844,7 @@ export default function AirlineDashboard() {
                   <Box
                     sx={{
                       display: "grid",
-                      gridTemplateColumns: "1fr 1fr 1fr",
+                      gridTemplateColumns: "1fr 1fr 1fr 1fr",
                       gap: 2,
                       mb: 2,
                     }}
@@ -564,13 +868,72 @@ export default function AirlineDashboard() {
                       required
                     />
                     <TextField
-                      label="Remaining tickets"
+                      label="Economy seats"
                       type="number"
-                      value={editRemainingTickets}
-                      onChange={(e) => setEditRemainingTickets(e.target.value)}
+                      value={editEconomySeats}
+                      onChange={(e) => setEditEconomySeats(e.target.value)}
                       fullWidth
                       required
-                      inputProps={{ min: 0 }}
+                      inputProps={{ min: 0, step: 1 }}
+                    />
+                    <TextField
+                      label="Business seats"
+                      type="number"
+                      value={editBusinessSeats}
+                      onChange={(e) => setEditBusinessSeats(e.target.value)}
+                      fullWidth
+                      required
+                      inputProps={{ min: 0, step: 1 }}
+                    />
+                  </Box>
+
+                  <Box
+                    sx={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr 1fr 1fr",
+                      gap: 2,
+                      mb: 2,
+                    }}
+                  >
+                    <TextField
+                      label="Remaining economy"
+                      type="number"
+                      value={editRemainingEconomyTickets}
+                      onChange={(e) =>
+                        setEditRemainingEconomyTickets(e.target.value)
+                      }
+                      fullWidth
+                      required
+                      inputProps={{ min: 0, step: 1 }}
+                    />
+                    <TextField
+                      label="Remaining business"
+                      type="number"
+                      value={editRemainingBusinessTickets}
+                      onChange={(e) =>
+                        setEditRemainingBusinessTickets(e.target.value)
+                      }
+                      fullWidth
+                      required
+                      inputProps={{ min: 0, step: 1 }}
+                    />
+                    <TextField
+                      label="Economy price"
+                      type="number"
+                      value={editEconomyPrice}
+                      onChange={(e) => setEditEconomyPrice(e.target.value)}
+                      fullWidth
+                      required
+                      inputProps={{ min: 0, step: "0.01" }}
+                    />
+                    <TextField
+                      label="Business price"
+                      type="number"
+                      value={editBusinessPrice}
+                      onChange={(e) => setEditBusinessPrice(e.target.value)}
+                      fullWidth
+                      required
+                      inputProps={{ min: 0, step: "0.01" }}
                     />
                   </Box>
 
@@ -583,7 +946,7 @@ export default function AirlineDashboard() {
           </Box>
         )}
 
-        {tab === 2 && (
+        {tab === 3 && (
           <Box>
             <Box sx={{ display: "flex", gap: 2, alignItems: "center", mb: 2 }}>
               <Typography variant="h6">Tickets sold</Typography>

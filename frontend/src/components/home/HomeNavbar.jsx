@@ -12,7 +12,7 @@ const resolveMenuItemsByRole = (role) => {
     return [{ label: "Airline Dashboard", action: "navigate", path: "/airline/dashboard" }];
   }
   if (role === "administrator") {
-    return [{ label: "Admin Panel", action: "disabled" }];
+    return [{ label: "Admin Dashboard", action: "navigate", path: "/administrator/dashboard" }];
   }
   return [];
 };
@@ -30,7 +30,7 @@ export default function HomeNavbar({ user, onLogout }) {
   };
 
   const items = resolveMenuItemsByRole(user?.role);
-  const displayName = user?.username ?? "User";
+  const displayName = user?.display_name ?? user?.username ?? "User";
 
   return (
     <AppBar position="sticky" className={styles.bar}>

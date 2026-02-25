@@ -7,6 +7,7 @@ import LoginPage from "./pages/LoginPage";
 import AirlineDashboard from "./pages/AirlineDashboard";
 import RegisterPage from "./pages/RegisterPage";
 import BuyPage from "./pages/BuyPage";
+import AdminDashboard from "./pages/AdminDashboard";
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/customer/dashboard" element={<CustomerDashboard />} />
             <Route path="/airline/dashboard" element={<AirlineDashboard />} />
+            <Route path="/administrator/dashboard" element={<AdminDashboard />} />
             <Route path="/buy/:flightId" element={<BuyPage />} />
           </Routes>
         </div>
