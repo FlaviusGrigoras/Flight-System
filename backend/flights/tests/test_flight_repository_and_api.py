@@ -188,3 +188,65 @@ def test_flights_arrivals_and_departures_api():
 
     assert arriving_flight.id in arrivals_ids
     assert departing_flight.id in departures_ids
+
+    arriving_payload = next(
+        item for item in arrivals_response.data if item["id"] == arriving_flight.id
+    )
+    departing_payload = next(
+        item for item in departures_response.data if item["id"] == departing_flight.id
+    )
+    assert arriving_payload["airline_company_name"] == "API Wings"
+    assert departing_payload["airline_company_name"] == "API Wings"
+
+
+@pytest.mark.django_db
+def test_flights_list_api_includes_airline_name():
+    country_ro = Country.objects.create(name="Romania", iso2="RO")
+    country_it = Country.objects.create(name="Italy", iso2="IT")
+
+    otp = Airport.objects.create(
+        name="Henri Coanda",
+        city="Bucharest",
+        iata_code="OTP",
+        icao_code="LROP",
+        country=country_ro,
+    )
+    fco = Airport.objects.create(
+        name="Fiumicino",
+        city="Rome",
+        iata_code="FCO",
+        icao_code="LIRF",
+        country=country_it,
+    )
+
+    airline_user = User.objects.create_user(
+        username="public-api-airline",
+        email="public-api-airline@example.com",
+        password="StrongPass123",
+    )
+    airline = AirlineCompany.objects.create(
+        name="Public API Wings", country=country_ro, user=airline_user
+    )
+
+    now = timezone.now()
+    flight = Flight.objects.create(
+        airline_company=airline,
+        origin_airport=otp,
+        destination_airport=fco,
+        departure_time=now + timedelta(hours=1),
+        landing_time=now + timedelta(hours=3),
+        remaining_tickets=40,
+        economy_seats=30,
+        business_seats=10,
+        remaining_economy_tickets=30,
+        remaining_business_tickets=10,
+        economy_price=85,
+        business_price=155,
+    )
+
+    client = APIClient()
+    response = client.get("/api/flights/")
+
+    assert response.status_code == 200
+    payload = next(item for item in response.data if item["id"] == flight.id)
+    assert payload["airline_company_name"] == "Public API Wings"

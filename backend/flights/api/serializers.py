@@ -16,10 +16,29 @@ class FlightSerializer(serializers.ModelSerializer):
         required=False, allow_null=True, write_only=True
     )
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        airline = getattr(instance, "airline_company", None)
+        data["airline_company_name"] = getattr(airline, "name", "") or ""
+        return data
+
     class Meta:
         model = Flight
         fields = "__all__"
-        read_only_fields = ["airline_company"]
+        read_only_fields = [
+            "airline_company",
+            "remaining_tickets",
+        ]
+        extra_kwargs = {
+            "economy_seats": {"required": True},
+            "business_seats": {"required": True},
+            "economy_price": {"required": True},
+            "business_price": {"required": True},
+            "origin_airport": {"required": True},
+            "destination_airport": {"required": True},
+            "departure_time": {"required": True},
+            "landing_time": {"required": True},
+        }
 
 
 class CountryShortSerializer(serializers.ModelSerializer):
