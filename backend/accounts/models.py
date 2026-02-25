@@ -13,6 +13,8 @@ class User(AbstractUser):
 class AirlineCompany(models.Model):
     name = models.CharField(max_length=100, unique=True)
     country = models.ForeignKey("geo.Country", on_delete=models.CASCADE)
+    website = models.URLField(max_length=200, null=True, blank=True)
+    logo = models.ImageField(upload_to="airlines/", null=True, blank=True)
     user = models.OneToOneField(
         User, on_delete=models.CASCADE, related_name="airline_profile"
     )

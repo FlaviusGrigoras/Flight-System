@@ -132,14 +132,86 @@ def test_admin_api_create_and_list_administrators():
 
 
 @pytest.mark.django_db
+def test_admin_api_create_airline():
+    admin_user = User.objects.create_user(
+        username="airline-admin",
+        email="airlineadmin@example.com",
+        password="StrongPass123",
+        is_superuser=True,
+        is_staff=True,
+    )
+    Administrator.objects.create(
+        user=admin_user, first_name="Airline", last_name="Admin"
+    )
+    country = Country.objects.create(name="Spain", iso2="ES")
+
+    client = APIClient()
+    client.force_authenticate(user=admin_user)
+
+    create_response = client.post(
+        "/api/accounts/admin/airlines/",
+        {
+            "username": "iberia-admin",
+            "email": "iberia@example.com",
+            "password": "StrongPass123",
+            "name": "Iberia Test",
+            "country_id": country.id,
+        },
+        format="json",
+    )
+    assert create_response.status_code == 201
+    created_airline_id = create_response.data["id"]
+
+    created_airline = AirlineCompany.objects.get(id=created_airline_id)
+    assert created_airline.user.username == "iberia-admin"
+    assert created_airline.user.email == "iberia@example.com"
+
+    list_response = client.get("/api/accounts/admin/airlines/")
+    assert list_response.status_code == 200
+    returned_ids = {item["id"] for item in list_response.data}
+    assert created_airline_id in returned_ids
+
+
+@pytest.mark.django_db
 def test_admin_api_requires_superuser():
     normal_user = User.objects.create_user(
         username="regular-user",
         email="regular@example.com",
         password="StrongPass123",
     )
+    country = Country.objects.create(name="Portugal", iso2="PT")
     client = APIClient()
     client.force_authenticate(user=normal_user)
 
     response = client.get("/api/accounts/admin/customers/")
     assert response.status_code == 403
+
+    create_airline_response = client.post(
+        "/api/accounts/admin/airlines/",
+        {
+            "username": "restricted-airline",
+            "email": "restricted@example.com",
+            "password": "StrongPass123",
+            "name": "Restricted Airline",
+            "country_id": country.id,
+        },
+        format="json",
+    )
+    assert create_airline_response.status_code == 403
+
+
+@pytest.mark.django_db
+def test_current_user_endpoint_marks_superuser_as_administrator():
+    superuser = User.objects.create_user(
+        username="root-user",
+        email="rootuser@example.com",
+        password="StrongPass123",
+        is_superuser=True,
+        is_staff=True,
+    )
+    client = APIClient()
+    client.force_authenticate(user=superuser)
+
+    response = client.get("/api/accounts/me/")
+    assert response.status_code == 200
+    assert response.data["role"] == "administrator"

@@ -1,5 +1,5 @@
 from facades.base_facade import FacadeBase
-from accounts.models import Administrator
+from accounts.models import Administrator, AirlineCompany
 from core.exceptions import ForbiddenError, NotFoundError, ValidationDomainError
 from django.db import transaction
 import logging
@@ -23,6 +23,13 @@ class AdministratorFacade(FacadeBase):
 
     def get_all_administrators(self):
         return self.admin_repo.get_all_with_users()
+
+    def add_airline(self, user_data, airline_data):
+        with transaction.atomic():
+            user = self.create_user(**user_data)
+            airline = self.airline_repo.add(AirlineCompany(user=user, **airline_data))
+        logger.info(f"New airline created by admin: {airline.name}")
+        return airline
 
     def add_administrator(self, user_data, admin_data):
         with transaction.atomic():

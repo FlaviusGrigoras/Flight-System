@@ -5,6 +5,7 @@ from .views import (
     RegisterCustomerAPIView,
     RegisterAirlineAPIView,
     CurrentUserAPIView,
+    AirlineMeAPIView,
     AdminCustomerListAPIView,
     AdminCustomerDetailAPIView,
     AdminAirlineListAPIView,
@@ -19,6 +20,7 @@ urlpatterns = [
     path("token/refresh/", TokenRefreshView.as_view(), name="api-token-refresh"),
     # GET
     path("me/", CurrentUserAPIView.as_view(), name="api-me"),
+    path("airline/me/", AirlineMeAPIView.as_view(), name="api-airline-me"),
     path(
         "register/customer/",
         RegisterCustomerAPIView.as_view(),

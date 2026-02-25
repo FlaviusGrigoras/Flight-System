@@ -57,19 +57,43 @@ class AirlineRegistrationSerializer(serializers.Serializer):
 
 class CurrentUserSerializer(serializers.ModelSerializer):
     role = serializers.SerializerMethodField()
+    display_name = serializers.SerializerMethodField()
+    airline_company = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ["id", "username", "email", "role"]
+        fields = ["id", "username", "email", "role", "display_name", "airline_company"]
 
     def get_role(self, obj):
-        if hasattr(obj, "admin_profile"):
+        if obj.is_superuser or hasattr(obj, "admin_profile"):
             return "administrator"
         if hasattr(obj, "airline_profile"):
             return "airline"
         if hasattr(obj, "customer_profile"):
             return "customer"
         return "anonymous"
+
+    def get_display_name(self, obj):
+        if hasattr(obj, "airline_profile"):
+            return obj.airline_profile.name
+        if hasattr(obj, "customer_profile"):
+            return f"{obj.customer_profile.first_name} {obj.customer_profile.last_name}"
+        if hasattr(obj, "admin_profile"):
+            return f"{obj.admin_profile.first_name} {obj.admin_profile.last_name}"
+        return obj.username
+
+    def get_airline_company(self, obj):
+        if not hasattr(obj, "airline_profile"):
+            return None
+        airline = obj.airline_profile
+        request = self.context.get("request")
+        logo_url = None
+        if airline.logo:
+            if request is not None:
+                logo_url = request.build_absolute_uri(airline.logo.url)
+            else:
+                logo_url = airline.logo.url
+        return {"id": airline.id, "name": airline.name, "logo_url": logo_url}
 
 
 class UserSummarySerializer(serializers.ModelSerializer):
@@ -94,6 +118,33 @@ class AirlineAdminSerializer(serializers.ModelSerializer):
     class Meta:
         model = AirlineCompany
         fields = ["id", "name", "country", "country_name", "country_iso2", "user"]
+
+
+class AirlineMeSerializer(serializers.ModelSerializer):
+    country_name = serializers.CharField(source="country.name", read_only=True)
+    country_iso2 = serializers.CharField(source="country.iso2", read_only=True)
+    logo_url = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = AirlineCompany
+        fields = [
+            "id",
+            "name",
+            "country",
+            "country_name",
+            "country_iso2",
+            "website",
+            "logo",
+            "logo_url",
+        ]
+
+    def get_logo_url(self, obj):
+        if not obj.logo:
+            return None
+        request = self.context.get("request")
+        if request is not None:
+            return request.build_absolute_uri(obj.logo.url)
+        return obj.logo.url
 
 
 class AdministratorReadSerializer(serializers.ModelSerializer):
