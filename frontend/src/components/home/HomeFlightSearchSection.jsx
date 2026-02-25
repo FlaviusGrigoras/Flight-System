@@ -57,6 +57,29 @@ export default function HomeFlightSearchSection({
 }) {
   return (
     <Container maxWidth="lg" className={styles.container}>
+      <Box className={styles.heroStrip}>
+        <Box
+          component="img"
+          src="/airplane-depart.png"
+          alt="Airplane departure"
+          className={styles.heroImage}
+        />
+        <Box className={styles.heroCopy}>
+          <Typography variant="overline" className={styles.heroOverline}>
+            Flight Search
+          </Typography>
+          <Typography variant="h6" className={styles.heroTitle}>
+            Plan your departure and arrival in one place
+          </Typography>
+        </Box>
+        <Box
+          component="img"
+          src="/airplane-arrival.png"
+          alt="Airplane arrival"
+          className={styles.heroImage}
+        />
+      </Box>
+
       <Card className={styles.searchCard} elevation={0}>
         <CardContent>
           <Typography variant="h5" className={styles.searchTitle}>

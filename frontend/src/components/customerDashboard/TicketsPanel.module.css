@@ -8,3 +8,23 @@
   margin-bottom: 16px;
 }
 
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.headerImage {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+@media (max-width: 600px) {
+  .headerImage {
+    width: 28px;
+    height: 28px;
+  }
+}

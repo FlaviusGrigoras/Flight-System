@@ -95,6 +95,7 @@ export function useCustomerDashboard() {
         const map = Object.fromEntries(pairs.filter(([, value]) => value != null));
         if (!cancelled) setFlightById(map);
       } catch {
+        // Ignore (individual flight fetches already handled).
       }
     };
 
@@ -118,4 +119,3 @@ export function useCustomerDashboard() {
     flightById,
   };
 }
-

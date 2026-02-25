@@ -23,9 +23,23 @@ export default function TicketsPanel({
         </Button>
       </Box>
 
-      <Typography variant="h6" gutterBottom>
-        My Tickets
-      </Typography>
+      <Box className={styles.header}>
+        <Box
+          component="img"
+          src="/airplane-depart.png"
+          alt="Airplane departure"
+          className={styles.headerImage}
+        />
+        <Typography variant="h6" gutterBottom>
+          My Tickets
+        </Typography>
+        <Box
+          component="img"
+          src="/airplane-arrival.png"
+          alt="Airplane arrival"
+          className={styles.headerImage}
+        />
+      </Box>
 
       <TicketsTable
         tickets={tickets}
@@ -36,4 +50,3 @@ export default function TicketsPanel({
     </Box>
   );
 }
-

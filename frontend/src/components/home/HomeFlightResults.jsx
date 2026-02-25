@@ -6,13 +6,57 @@ import styles from "./HomeFlightSearchSection.module.css";
 const formatLocalTime = (isoString) => {
   const date = new Date(isoString);
   if (Number.isNaN(date.getTime())) return "--:--";
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat("en-GB", {
     hour: "2-digit",
     minute: "2-digit",
+    hour12: false,
   }).format(date);
 };
 
-const airlineBadge = (airlineId) => `A${airlineId}`;
+const getAirlineId = (airlineCompany) => {
+  if (airlineCompany && typeof airlineCompany === "object")
+    return airlineCompany.id;
+  return airlineCompany;
+};
+
+const getAirlineName = (flight) => {
+  if (flight.airline_company?.name?.trim())
+    return flight.airline_company.name.trim();
+  if (
+    typeof flight.airline_company_name === "string" &&
+    flight.airline_company_name.trim()
+  ) {
+    return flight.airline_company_name.trim();
+  }
+  if (typeof flight.airline_name === "string" && flight.airline_name.trim()) {
+    return flight.airline_name.trim();
+  }
+  return "Companie aeriana";
+};
+
+const airportCode = (airport) => {
+  const iata = airport?.iata_code?.trim()?.toUpperCase();
+  if (iata && iata.length === 3) return iata;
+  const fallback = airport?.icao_code?.trim()?.toUpperCase();
+  if (fallback && fallback.length >= 3) return fallback.slice(0, 3);
+  return "N/A";
+};
+
+const airportCity = (airport) => {
+  const city = airport?.city?.trim();
+  if (city) return city;
+  const name = airport?.name?.trim();
+  if (name) return name;
+  return "Unknown city";
+};
+
+const airportLabel = (airport) =>
+  `${airportCode(airport)} - ${airportCity(airport)}`;
+
+const airlineBadge = (airlineCompany) => {
+  const airlineId = getAirlineId(airlineCompany);
+  return airlineId != null && airlineId !== "" ? `A${airlineId}` : "AL";
+};
 
 export default function HomeFlightResults({ flights, passengers, cabinClass }) {
   const navigate = useNavigate();
@@ -22,21 +66,32 @@ export default function HomeFlightResults({ flights, passengers, cabinClass }) {
       {flights.map((flight) => {
         const origin = flight.origin_airport_obj;
         const destination = flight.destination_airport_obj;
-        const originCode = origin?.iata_code || origin?.icao_code || "N/A";
-        const destinationCode =
-          destination?.iata_code || destination?.icao_code || "N/A";
+        const airlineName = getAirlineName(flight);
 
         return (
           <Paper key={flight.id} className={styles.resultCard} elevation={0}>
-            <Box className={styles.logoBox}>{airlineBadge(flight.airline_company)}</Box>
+            <Box className={styles.logoBox}>
+              {airlineBadge(flight.airline_company)}
+            </Box>
 
             <Box className={styles.routeBox}>
               <Typography variant="h6" className={styles.routeTimes}>
-                {formatLocalTime(flight.departure_time)} {originCode} {"->"}{" "}
-                {formatLocalTime(flight.landing_time)} {destinationCode}
+                <span className={styles.routeLeg}>
+                  {formatLocalTime(flight.departure_time)}{" "}
+                  {airportLabel(origin)}
+                </span>
+                <span className={styles.routeArrow}>→</span>
+                <span className={styles.routeLeg}>
+                  {formatLocalTime(flight.landing_time)}{" "}
+                  {airportLabel(destination)}
+                </span>
               </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Airline #{flight.airline_company} | {passengers} traveller
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                className={styles.routeMeta}
+              >
+                {airlineName} | {passengers} traveller
                 {Number(passengers) > 1 ? "s" : ""} | {cabinClass}
               </Typography>
             </Box>
@@ -53,7 +108,7 @@ export default function HomeFlightResults({ flights, passengers, cabinClass }) {
                 size="small"
                 onClick={() => navigate(`/buy/${flight.id}`)}
               >
-                Cumpara
+                Buy
               </Button>
             </Box>
           </Paper>
