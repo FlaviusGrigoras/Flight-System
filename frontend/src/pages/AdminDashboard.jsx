@@ -21,6 +21,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { adminService } from "../services/adminService";
 import { geoService } from "../services/geoService";
+import { ticketService } from "../services/ticketService";
 
 const getApiErrorMessage = (err, fallback) => {
   const detail = err?.response?.data?.detail;
@@ -47,6 +48,22 @@ const getUserLabel = (user) => {
   return user.username || "-";
 };
 
+const formatDateTimeGB = (isoString) => {
+  if (!isoString) return "";
+  const d = new Date(isoString);
+  if (Number.isNaN(d.getTime())) return "";
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(d);
+};
+
+const isTicketActive = (ticket) =>
+  String(ticket?.status ?? "").toUpperCase() === "ACTIVE";
+
 export default function AdminDashboard() {
   const { user, isLoading } = useAuth();
   const isAdministrator = user?.role === "administrator";
@@ -62,6 +79,8 @@ export default function AdminDashboard() {
   const [isLoadingCountries, setIsLoadingCountries] = useState(false);
   const [isSubmittingAdmin, setIsSubmittingAdmin] = useState(false);
   const [isSubmittingAirline, setIsSubmittingAirline] = useState(false);
+  const [isLoadingTickets, setIsLoadingTickets] = useState(false);
+  const [isRefundingTicketId, setIsRefundingTicketId] = useState(null);
 
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -76,6 +95,7 @@ export default function AdminDashboard() {
   const [airlineEmail, setAirlineEmail] = useState("");
   const [airlineUsername, setAirlineUsername] = useState("");
   const [airlinePassword, setAirlinePassword] = useState("");
+  const [tickets, setTickets] = useState([]);
 
   const clearMessages = useCallback(() => {
     setError(null);
@@ -130,10 +150,35 @@ export default function AdminDashboard() {
     }
   }, []);
 
+  const loadTickets = useCallback(async () => {
+    setIsLoadingTickets(true);
+    try {
+      const data = await ticketService.getAdminTickets();
+      setTickets(data);
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Failed to load tickets."));
+    } finally {
+      setIsLoadingTickets(false);
+    }
+  }, []);
+
   const refreshAll = useCallback(async () => {
     clearMessages();
-    await Promise.all([loadCustomers(), loadAirlines(), loadAdministrators(), loadCountries()]);
-  }, [clearMessages, loadAdministrators, loadAirlines, loadCountries, loadCustomers]);
+    await Promise.all([
+      loadCustomers(),
+      loadAirlines(),
+      loadAdministrators(),
+      loadCountries(),
+      loadTickets(),
+    ]);
+  }, [
+    clearMessages,
+    loadAdministrators,
+    loadAirlines,
+    loadCountries,
+    loadCustomers,
+    loadTickets,
+  ]);
 
   useEffect(() => {
     if (!isAdministrator) return;
@@ -172,6 +217,22 @@ export default function AdminDashboard() {
       );
     } catch (err) {
       setError(getApiErrorMessage(err, "Failed to remove administrator."));
+    }
+  };
+
+  const refundTicket = async (ticketId) => {
+    clearMessages();
+    setIsRefundingTicketId(ticketId);
+    try {
+      const updated = await ticketService.refundTicket(ticketId);
+      setSuccess(`Ticket #${ticketId} refunded.`);
+      setTickets((prev) =>
+        prev.map((ticket) => (ticket.id === ticketId ? updated : ticket))
+      );
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Failed to refund ticket."));
+    } finally {
+      setIsRefundingTicketId(null);
     }
   };
 
@@ -508,7 +569,7 @@ export default function AdminDashboard() {
         </Table>
       </Paper>
 
-      <Paper sx={{ p: 2 }} elevation={2}>
+      <Paper sx={{ p: 2, mb: 3 }} elevation={2}>
         <Box
           sx={{
             display: "flex",
@@ -564,6 +625,70 @@ export default function AdminDashboard() {
                   </TableRow>
                 );
               })
+            )}
+          </TableBody>
+        </Table>
+      </Paper>
+
+      <Paper sx={{ p: 2 }} elevation={2}>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            mb: 1,
+            gap: 2,
+            flexWrap: "wrap",
+          }}
+        >
+          <Typography variant="h6">Purchased Tickets</Typography>
+          <Button variant="text" onClick={loadTickets} disabled={isLoadingTickets}>
+            {isLoadingTickets ? "Loading..." : "Refresh"}
+          </Button>
+        </Box>
+
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>ID</TableCell>
+              <TableCell>Flight</TableCell>
+              <TableCell>Airline</TableCell>
+              <TableCell>Customer</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell>Purchased</TableCell>
+              <TableCell align="right">Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {tickets.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7}>No tickets found.</TableCell>
+              </TableRow>
+            ) : (
+              tickets.map((ticket) => (
+                <TableRow key={ticket.id}>
+                  <TableCell>{ticket.id}</TableCell>
+                  <TableCell>{ticket.flight?.id ? `#${ticket.flight.id}` : "-"}</TableCell>
+                  <TableCell>{ticket.flight?.airline_company?.name || "-"}</TableCell>
+                  <TableCell>
+                    {ticket.customer?.first_name} {ticket.customer?.last_name}
+                  </TableCell>
+                  <TableCell>{ticket.status}</TableCell>
+                  <TableCell>{formatDateTimeGB(ticket.purchased_at)}</TableCell>
+                  <TableCell align="right">
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      disabled={
+                        !isTicketActive(ticket) || isRefundingTicketId === ticket.id
+                      }
+                      onClick={() => refundTicket(ticket.id)}
+                    >
+                      {isRefundingTicketId === ticket.id ? "Refunding..." : "Refund"}
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
             )}
           </TableBody>
         </Table>

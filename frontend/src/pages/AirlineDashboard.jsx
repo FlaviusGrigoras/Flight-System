@@ -63,6 +63,9 @@ const getApiErrorMessage = (err, fallback) => {
   );
 };
 
+const isTicketActive = (ticket) =>
+  String(ticket?.status ?? "").toUpperCase() === "ACTIVE";
+
 const DEPARTURE_IMAGE_SRC = "/airplane-depart.png";
 const ARRIVAL_IMAGE_SRC = "/airplane-arrival.png";
 
@@ -119,6 +122,7 @@ export default function AirlineDashboard() {
   const [soldTickets, setSoldTickets] = useState([]);
   const [isLoadingSoldTickets, setIsLoadingSoldTickets] = useState(false);
   const [soldTicketsFlightId, setSoldTicketsFlightId] = useState("");
+  const [isRefundingTicketId, setIsRefundingTicketId] = useState(null);
 
   const isAirline = user?.role === "airline";
   const headerCompanyName = companyName?.trim() || user?.airline_company?.name;
@@ -379,6 +383,24 @@ export default function AirlineDashboard() {
       await refreshMyFlights();
     } catch (err) {
       setError(getApiErrorMessage(err, "Failed to delete flight."));
+    }
+  };
+
+  const handleRefundTicket = async (ticketId) => {
+    setError(null);
+    setSuccess(null);
+    setIsRefundingTicketId(ticketId);
+    try {
+      const updated = await ticketService.refundTicket(ticketId);
+      setSoldTickets((prev) =>
+        prev.map((ticket) => (ticket.id === ticketId ? updated : ticket))
+      );
+      setSuccess(`Ticket #${ticketId} refunded.`);
+      await refreshMyFlights();
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Failed to refund ticket."));
+    } finally {
+      setIsRefundingTicketId(null);
     }
   };
 
@@ -989,6 +1011,7 @@ export default function AirlineDashboard() {
                   <TableCell>Customer</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>Purchased</TableCell>
+                  <TableCell align="right">Action</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -1014,6 +1037,16 @@ export default function AirlineDashboard() {
                       {t.purchased_at
                         ? formatDateTimeGB(t.purchased_at)
                         : ""}
+                    </TableCell>
+                    <TableCell align="right">
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        disabled={!isTicketActive(t) || isRefundingTicketId === t.id}
+                        onClick={() => handleRefundTicket(t.id)}
+                      >
+                        {isRefundingTicketId === t.id ? "Refunding..." : "Refund"}
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
