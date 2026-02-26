@@ -6,6 +6,7 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework_simplejwt.tokens import RefreshToken
 from facades.anonymous_facade import AnonymousFacade
 from facades.administrator_facade import AdministratorFacade
+from facades.customer_facade import CustomerFacade
 from core.exceptions import ForbiddenError
 from .serializers import (
     LoginRequestSerializer,
@@ -15,6 +16,7 @@ from .serializers import (
     CustomerAdminSerializer,
     AirlineAdminSerializer,
     AirlineMeSerializer,
+    CustomerMeSerializer,
     AdministratorReadSerializer,
     AdministratorCreateSerializer,
 )
@@ -64,6 +66,9 @@ class RegisterCustomerAPIView(APIView):
         customer_data = {
             "first_name": data["first_name"],
             "last_name": data["last_name"],
+            "address": data["address"],
+            "phone_no": data["phone_no"],
+            "credit_card_no": data["credit_card_no"],
         }
 
         customer = facade.add_customer(user_data, customer_data)
@@ -132,6 +137,39 @@ class AirlineMeAPIView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class CustomerMeAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def _get_customer(self, request):
+        if not hasattr(request.user, "customer_profile"):
+            raise ForbiddenError("User is not a customer")
+        return request.user.customer_profile
+
+    def get(self, request):
+        customer = self._get_customer(request)
+        return Response(
+            CustomerMeSerializer(customer).data,
+            status=status.HTTP_200_OK,
+        )
+
+    def patch(self, request):
+        customer = self._get_customer(request)
+        serializer = CustomerMeSerializer(customer, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+
+        update_data = dict(serializer.validated_data)
+        user_data = update_data.pop("user", None) or {}
+        if "email" in user_data:
+            update_data["email"] = user_data["email"]
+
+        facade = CustomerFacade(request.user)
+        updated_customer = facade.update_customer(update_data)
+        return Response(
+            CustomerMeSerializer(updated_customer).data,
+            status=status.HTTP_200_OK,
+        )
 
 
 class AdminCustomerListAPIView(APIView):

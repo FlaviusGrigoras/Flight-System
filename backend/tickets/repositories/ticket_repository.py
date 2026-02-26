@@ -1,5 +1,7 @@
 from core.repository import BaseRepository
 from tickets.models import Ticket
+from django.db import connection, DatabaseError
+from django.db.models import Case, IntegerField, Value, When
 
 
 class TicketRepository(BaseRepository):
@@ -7,9 +9,35 @@ class TicketRepository(BaseRepository):
         super().__init__(Ticket)
 
     def get_tickets_by_customer(self, customer_id):
-        return self.model.objects.select_related(
-            "flight", "flight__origin_airport", "flight__destination_airport"
-        ).filter(customer_id=customer_id)
+        queryset = self.model.objects.select_related(
+            "flight",
+            "flight__origin_airport",
+            "flight__destination_airport",
+        )
+
+        try:
+            if connection.vendor == "postgresql":
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        "SELECT id FROM get_tickets_by_customer(%s);",
+                        [customer_id],
+                    )
+                    rows = cursor.fetchall()
+                ticket_ids = [row[0] for row in rows]
+                if not ticket_ids:
+                    return queryset.none()
+                ordering = Case(
+                    *[
+                        When(id=ticket_id, then=Value(index))
+                        for index, ticket_id in enumerate(ticket_ids)
+                    ],
+                    output_field=IntegerField(),
+                )
+                return queryset.filter(id__in=ticket_ids).order_by(ordering)
+        except DatabaseError:
+            pass
+
+        return queryset.filter(customer_id=customer_id)
 
     def get_tickets_by_airline(self, airline_company_id, flight_id=None):
         qs = self.model.objects.select_related(

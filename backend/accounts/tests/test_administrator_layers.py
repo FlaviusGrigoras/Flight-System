@@ -1,4 +1,8 @@
+from io import BytesIO
+
 import pytest
+from django.core.files.uploadedfile import SimpleUploadedFile
+from PIL import Image
 from rest_framework.test import APIClient
 
 from accounts.models import Administrator, AirlineCompany, Customer, User
@@ -29,7 +33,12 @@ def test_administrator_facade_can_manage_entities():
         password="StrongPass123",
     )
     customer = Customer.objects.create(
-        user=customer_user, first_name="Ada", last_name="Lovelace"
+        user=customer_user,
+        first_name="Ada",
+        last_name="Lovelace",
+        address="42 Logic Street",
+        phone_no="PH00000000001",
+        credit_card_no="0000000000001",
     )
 
     airline_user = User.objects.create_user(
@@ -101,9 +110,7 @@ def test_admin_api_create_and_list_administrators():
         is_superuser=True,
         is_staff=True,
     )
-    Administrator.objects.create(
-        user=admin_user, first_name="API", last_name="Admin"
-    )
+    Administrator.objects.create(user=admin_user, first_name="API", last_name="Admin")
 
     client = APIClient()
     client.force_authenticate(user=admin_user)
@@ -215,3 +222,45 @@ def test_current_user_endpoint_marks_superuser_as_administrator():
     response = client.get("/api/accounts/me/")
     assert response.status_code == 200
     assert response.data["role"] == "administrator"
+
+
+@pytest.mark.django_db
+def test_airline_logo_upload_is_stored_in_database_and_returned_as_data_url():
+    country = Country.objects.create(name="France", iso2="FR")
+    airline_user = User.objects.create_user(
+        username="logo-airline",
+        email="logo-airline@example.com",
+        password="StrongPass123",
+    )
+    airline = AirlineCompany.objects.create(
+        name="Logo DB Air",
+        country=country,
+        user=airline_user,
+    )
+
+    client = APIClient()
+    client.force_authenticate(user=airline_user)
+
+    image_buffer = BytesIO()
+    Image.new("RGB", (1, 1), color="white").save(image_buffer, format="PNG")
+    logo_file = SimpleUploadedFile(
+        "logo.png",
+        image_buffer.getvalue(),
+        content_type="image/png",
+    )
+
+    update_response = client.patch(
+        "/api/accounts/airline/me/",
+        {"logo": logo_file},
+        format="multipart",
+    )
+    assert update_response.status_code == 200, update_response.data
+    assert update_response.data["logo_url"].startswith("data:image/png;base64,")
+
+    airline.refresh_from_db()
+    assert airline.logo.startswith("data:image/png;base64,")
+    assert airline.logo == update_response.data["logo_url"]
+
+    me_response = client.get("/api/accounts/me/")
+    assert me_response.status_code == 200
+    assert me_response.data["airline_company"]["logo_url"] == airline.logo

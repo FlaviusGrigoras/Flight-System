@@ -6,6 +6,7 @@ from .views import (
     RegisterAirlineAPIView,
     CurrentUserAPIView,
     AirlineMeAPIView,
+    CustomerMeAPIView,
     AdminCustomerListAPIView,
     AdminCustomerDetailAPIView,
     AdminAirlineListAPIView,
@@ -21,6 +22,7 @@ urlpatterns = [
     # GET
     path("me/", CurrentUserAPIView.as_view(), name="api-me"),
     path("airline/me/", AirlineMeAPIView.as_view(), name="api-airline-me"),
+    path("customer/me/", CustomerMeAPIView.as_view(), name="api-customer-me"),
     path(
         "register/customer/",
         RegisterCustomerAPIView.as_view(),

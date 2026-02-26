@@ -5,7 +5,7 @@ from accounts.repositories.administrator_repository import AdministratorReposito
 from accounts.repositories.user_repository import UserRepository
 from geo.repositories.country_repository import CountryRepository
 from geo.repositories.airport_repository import AirportRepository
-from accounts.models import User
+from accounts.models import User, UserRole
 import uuid
 
 
@@ -44,6 +44,24 @@ class FacadeBase:
     def get_airline_by_id(self, airline_id):
         return self.airline_repo.get_by_id(airline_id)
 
+    def add_customer(self, customer):
+        if (
+            getattr(customer, "user_id", None)
+            and getattr(customer.user, "user_role_id", None) is None
+        ):
+            customer.user.user_role = self._get_or_create_user_role("Customer")
+            customer.user.save(update_fields=["user_role"])
+        return self.customer_repo.add(customer)
+
+    def add_airline(self, airline):
+        if (
+            getattr(airline, "user_id", None)
+            and getattr(airline.user, "user_role_id", None) is None
+        ):
+            airline.user.user_role = self._get_or_create_user_role("Airline Company")
+            airline.user.save(update_fields=["user_role"])
+        return self.airline_repo.add(airline)
+
     def get_all_countries(self):
         return self.country_repo.get_all()
 
@@ -61,10 +79,17 @@ class FacadeBase:
     def get_all_administrators(self):
         return self.admin_repo.get_all_with_users()
 
-    def create_user(self, username, password, email):
+    def _get_or_create_user_role(self, role_name):
+        role, _ = UserRole.objects.get_or_create(role_name=role_name)
+        return role
+
+    def create_user(self, username, password, email, user_role_name=None):
         user = User.objects.create_user(
             username=username, email=email, password=password
         )
+        if user_role_name:
+            user.user_role = self._get_or_create_user_role(user_role_name)
+            user.save(update_fields=["user_role"])
         return user
 
     def generate_unique_username_from_email(self, email):

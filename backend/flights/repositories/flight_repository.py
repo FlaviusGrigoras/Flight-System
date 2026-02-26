@@ -26,12 +26,16 @@ class FlightRepository:
             }
         )
 
-    def _get_flights_using_stored_function(self, function_name, country_id):
+    def _get_flights_using_stored_function(self, function_name, params):
         if connection.vendor != "postgresql":
             raise DatabaseError("Stored function support is enabled only on PostgreSQL")
 
+        placeholders = ", ".join(["%s"] * len(params))
         with connection.cursor() as cursor:
-            cursor.execute(f"SELECT id FROM {function_name}(%s);", [country_id])
+            cursor.execute(
+                f"SELECT id FROM {function_name}({placeholders});",
+                params,
+            )
             rows = cursor.fetchall()
 
         flight_ids = [row[0] for row in rows]
@@ -39,7 +43,10 @@ class FlightRepository:
             return self._with_related().none()
 
         ordering = Case(
-            *[When(id=flight_id, then=Value(index)) for index, flight_id in enumerate(flight_ids)],
+            *[
+                When(id=flight_id, then=Value(index))
+                for index, flight_id in enumerate(flight_ids)
+            ],
             output_field=IntegerField(),
         )
         return self._with_related().filter(id__in=flight_ids).order_by(ordering)
@@ -74,12 +81,19 @@ class FlightRepository:
         return Flight.objects.filter(landing_time__date=date)
 
     def get_flights_by_airline_id(self, airline_id):
-        return self._with_related().filter(airline_company_id=airline_id)
+        try:
+            return self._get_flights_using_stored_function(
+                "get_flights_by_airline_id",
+                [airline_id],
+            )
+        except DatabaseError:
+            return self._with_related().filter(airline_company_id=airline_id)
 
     def get_arrival_flights(self, country_id):
         try:
             return self._get_flights_using_stored_function(
-                "get_arrival_flights", country_id
+                "get_arrival_flights",
+                [country_id],
             )
         except DatabaseError:
             return self._get_flights_within_next_12_hours(
@@ -89,7 +103,8 @@ class FlightRepository:
     def get_departure_flights(self, country_id):
         try:
             return self._get_flights_using_stored_function(
-                "get_departure_flights", country_id
+                "get_departure_flights",
+                [country_id],
             )
         except DatabaseError:
             return self._get_flights_within_next_12_hours(
@@ -99,8 +114,14 @@ class FlightRepository:
     def get_flights_by_parameters(
         self, origin_country_id, destination_country_id, target_date
     ):
-        return self._with_related().filter(
-            origin_airport__country_id=origin_country_id,
-            destination_airport__country_id=destination_country_id,
-            departure_time__date=target_date,
-        )
+        try:
+            return self._get_flights_using_stored_function(
+                "get_flights_by_parameters",
+                [origin_country_id, destination_country_id, target_date],
+            )
+        except DatabaseError:
+            return self._with_related().filter(
+                origin_airport__country_id=origin_country_id,
+                destination_airport__country_id=destination_country_id,
+                departure_time__date=target_date,
+            )

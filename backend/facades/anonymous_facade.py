@@ -29,12 +29,12 @@ class AnonymousFacade(FacadeBase):
         return user
 
     def add_customer(self, user_data, customer_data):
-        # user_data -> dictionar cu username, password, email
-        # customer_data -> dictionar cu first_name, last_name
+        # user_data -> username, password, email
+        # customer_data -> first_name, last_name, address, phone_no, credit_card_no
         with transaction.atomic():
-            user = self.create_user(**user_data)
+            user = self.create_user(**user_data, user_role_name="Customer")
             customer = Customer(user=user, **customer_data)
-            saved_customer = self.customer_repo.add(customer)
+            saved_customer = super().add_customer(customer)
         logger.info(
             f"New customer registered: '{customer.first_name} {customer.last_name}' (Username: {user.username})."
         )
@@ -43,9 +43,9 @@ class AnonymousFacade(FacadeBase):
 
     def add_airline(self, user_data, airline_data):
         with transaction.atomic():
-            user = self.create_user(**user_data)
+            user = self.create_user(**user_data, user_role_name="Airline Company")
             airline = AirlineCompany(user=user, **airline_data)
-            saved_airline = self.airline_repo.add(airline)
+            saved_airline = super().add_airline(airline)
 
         logger.info(
             f"New airline company registered: '{airline.name}' (Username: {user.username})."

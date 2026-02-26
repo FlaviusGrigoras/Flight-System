@@ -143,6 +143,8 @@ def test_flights_arrivals_and_departures_api():
     airline = AirlineCompany.objects.create(
         name="API Wings", country=country_ro, user=airline_user
     )
+    airline.logo = "data:image/png;base64,ZmFrZS1sb2dv"
+    airline.save(update_fields=["logo"])
 
     now = timezone.now()
     arriving_flight = Flight.objects.create(
@@ -197,6 +199,8 @@ def test_flights_arrivals_and_departures_api():
     )
     assert arriving_payload["airline_company_name"] == "API Wings"
     assert departing_payload["airline_company_name"] == "API Wings"
+    assert arriving_payload["airline_logo_url"] == "data:image/png;base64,ZmFrZS1sb2dv"
+    assert departing_payload["airline_logo_url"] == "data:image/png;base64,ZmFrZS1sb2dv"
 
 
 @pytest.mark.django_db
@@ -227,6 +231,8 @@ def test_flights_list_api_includes_airline_name():
     airline = AirlineCompany.objects.create(
         name="Public API Wings", country=country_ro, user=airline_user
     )
+    airline.logo = "data:image/png;base64,cHVibGljLWxvZ28="
+    airline.save(update_fields=["logo"])
 
     now = timezone.now()
     flight = Flight.objects.create(
@@ -250,3 +256,62 @@ def test_flights_list_api_includes_airline_name():
     assert response.status_code == 200
     payload = next(item for item in response.data if item["id"] == flight.id)
     assert payload["airline_company_name"] == "Public API Wings"
+    assert payload["airline_logo_url"] == "data:image/png;base64,cHVibGljLWxvZ28="
+    assert payload["origin_airport_obj"]["id"] == otp.id
+    assert payload["origin_airport_obj"]["country"]["name"] == "Romania"
+    assert payload["destination_airport_obj"]["id"] == fco.id
+    assert payload["destination_airport_obj"]["country"]["name"] == "Italy"
+
+
+@pytest.mark.django_db
+def test_flights_list_api_sets_no_cache_headers():
+    country_ro = Country.objects.create(name="Romania", iso2="RO")
+    country_it = Country.objects.create(name="Italy", iso2="IT")
+
+    otp = Airport.objects.create(
+        name="Henri Coanda",
+        city="Bucharest",
+        iata_code="OTP",
+        icao_code="LROP",
+        country=country_ro,
+    )
+    fco = Airport.objects.create(
+        name="Fiumicino",
+        city="Rome",
+        iata_code="FCO",
+        icao_code="LIRF",
+        country=country_it,
+    )
+
+    airline_user = User.objects.create_user(
+        username="cache-header-airline",
+        email="cache-header-airline@example.com",
+        password="StrongPass123",
+    )
+    airline = AirlineCompany.objects.create(
+        name="Cache Header Wings", country=country_ro, user=airline_user
+    )
+
+    now = timezone.now()
+    Flight.objects.create(
+        airline_company=airline,
+        origin_airport=otp,
+        destination_airport=fco,
+        departure_time=now + timedelta(hours=2),
+        landing_time=now + timedelta(hours=5),
+        remaining_tickets=70,
+        economy_seats=50,
+        business_seats=20,
+        remaining_economy_tickets=50,
+        remaining_business_tickets=20,
+        economy_price=110,
+        business_price=210,
+    )
+
+    client = APIClient()
+    response = client.get("/api/flights/")
+
+    assert response.status_code == 200
+    assert response["Cache-Control"] == "no-store, no-cache, must-revalidate, max-age=0"
+    assert response["Pragma"] == "no-cache"
+    assert response["Expires"] == "0"

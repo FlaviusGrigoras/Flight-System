@@ -15,11 +15,28 @@ class FlightSerializer(serializers.ModelSerializer):
     recurrence_end_date = serializers.DateField(
         required=False, allow_null=True, write_only=True
     )
+    origin_airport_obj = serializers.SerializerMethodField(read_only=True)
+    destination_airport_obj = serializers.SerializerMethodField(read_only=True)
+
+    def _serialize_airport(self, airport):
+        if airport is None:
+            return None
+        return AirportShortSerializer(airport).data
+
+    def get_origin_airport_obj(self, obj):
+        return self._serialize_airport(getattr(obj, "origin_airport", None))
+
+    def get_destination_airport_obj(self, obj):
+        return self._serialize_airport(getattr(obj, "destination_airport", None))
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
         airline = getattr(instance, "airline_company", None)
         data["airline_company_name"] = getattr(airline, "name", "") or ""
+        request = self.context.get("request")
+        data["airline_logo_url"] = (
+            airline.get_logo_url(request=request) if airline is not None else None
+        )
         return data
 
     class Meta:
@@ -56,9 +73,15 @@ class AirportShortSerializer(serializers.ModelSerializer):
 
 
 class AirlineCompanyShortSerializer(serializers.ModelSerializer):
+    logo_url = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = AirlineCompany
-        fields = ["id", "name"]
+        fields = ["id", "name", "logo_url"]
+
+    def get_logo_url(self, obj):
+        request = self.context.get("request")
+        return obj.get_logo_url(request=request)
 
 
 class FlightReadSerializer(serializers.ModelSerializer):

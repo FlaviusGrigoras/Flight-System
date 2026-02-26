@@ -26,14 +26,14 @@ class AdministratorFacade(FacadeBase):
 
     def add_airline(self, user_data, airline_data):
         with transaction.atomic():
-            user = self.create_user(**user_data)
-            airline = self.airline_repo.add(AirlineCompany(user=user, **airline_data))
+            user = self.create_user(**user_data, user_role_name="Airline Company")
+            airline = super().add_airline(AirlineCompany(user=user, **airline_data))
         logger.info(f"New airline created by admin: {airline.name}")
         return airline
 
     def add_administrator(self, user_data, admin_data):
         with transaction.atomic():
-            user = self.create_user(**user_data)
+            user = self.create_user(**user_data, user_role_name="Administrator")
             user.is_superuser = True
             user.is_staff = True
             user.save(update_fields=["is_superuser", "is_staff"])

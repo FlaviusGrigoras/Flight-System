@@ -10,6 +10,19 @@ from facades.airline_facade import AirlineFacade
 from .serializers import FlightSerializer, FlightReadSerializer
 
 
+NO_CACHE_HEADERS = {
+    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+    "Pragma": "no-cache",
+    "Expires": "0",
+}
+
+
+def with_no_cache(response: Response) -> Response:
+    for header, value in NO_CACHE_HEADERS.items():
+        response[header] = value
+    return response
+
+
 class FlightListAPIView(APIView):
     def get(self, request):
         facade = FacadeBase()
@@ -31,9 +44,7 @@ class FlightListAPIView(APIView):
 
         if all(filters):
             if not origin_country_id.isdigit() or not destination_country_id.isdigit():
-                raise ValidationError(
-                    {"filters": "country ids must be integers."}
-                )
+                raise ValidationError({"filters": "country ids must be integers."})
             parsed_date = parse_date(target_date)
             if parsed_date is None:
                 raise ValidationError({"date": "Invalid date format. Use YYYY-MM-DD."})
@@ -46,8 +57,8 @@ class FlightListAPIView(APIView):
         else:
             flights = facade.get_all_flights()
 
-        serializer = FlightSerializer(flights, many=True)
-        return Response(serializer.data)
+        serializer = FlightSerializer(flights, many=True, context={"request": request})
+        return with_no_cache(Response(serializer.data))
 
 
 class FlightDetailAPIView(APIView):
@@ -58,7 +69,7 @@ class FlightDetailAPIView(APIView):
             return Response(
                 {"error": "Flight not found"}, status=status.HTTP_404_NOT_FOUND
             )
-        return Response(FlightSerializer(flight).data)
+        return Response(FlightSerializer(flight, context={"request": request}).data)
 
 
 class ArrivalFlightsAPIView(APIView):
@@ -69,7 +80,7 @@ class ArrivalFlightsAPIView(APIView):
 
         facade = FacadeBase()
         flights = facade.get_arrival_flights(int(country_id))
-        serializer = FlightSerializer(flights, many=True)
+        serializer = FlightSerializer(flights, many=True, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -81,7 +92,7 @@ class DepartureFlightsAPIView(APIView):
 
         facade = FacadeBase()
         flights = facade.get_departure_flights(int(country_id))
-        serializer = FlightSerializer(flights, many=True)
+        serializer = FlightSerializer(flights, many=True, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -91,7 +102,9 @@ class AirlineFlightsAPIView(APIView):
     def get(self, request):
         facade = AirlineFacade(request.user.username)
         flights = facade.get_my_flights()
-        serializer = FlightReadSerializer(flights, many=True)
+        serializer = FlightReadSerializer(
+            flights, many=True, context={"request": request}
+        )
         return Response(serializer.data)
 
     def post(self, request):
@@ -102,11 +115,14 @@ class AirlineFlightsAPIView(APIView):
         new_flight = facade.add_flight(serializer.validated_data)
         if isinstance(new_flight, list):
             return Response(
-                FlightReadSerializer(new_flight, many=True).data,
+                FlightReadSerializer(
+                    new_flight, many=True, context={"request": request}
+                ).data,
                 status=status.HTTP_201_CREATED,
             )
         return Response(
-            FlightReadSerializer(new_flight).data, status=status.HTTP_201_CREATED
+            FlightReadSerializer(new_flight, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
         )
 
 
@@ -128,14 +144,17 @@ class AirlineFlightDetailAPIView(APIView):
             )
         if flight.airline_company_id != facade.airline_company.id:
             raise ForbiddenError("You can only manage your own flights")
-        return Response(FlightReadSerializer(flight).data)
+        return Response(FlightReadSerializer(flight, context={"request": request}).data)
 
     def patch(self, request, pk: int):
         facade = self._get_airline_facade(request)
         serializer = FlightSerializer(data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         updated = facade.update_flight(pk, serializer.validated_data)
-        return Response(FlightReadSerializer(updated).data, status=status.HTTP_200_OK)
+        return Response(
+            FlightReadSerializer(updated, context={"request": request}).data,
+            status=status.HTTP_200_OK,
+        )
 
     def delete(self, request, pk: int):
         facade = self._get_airline_facade(request)

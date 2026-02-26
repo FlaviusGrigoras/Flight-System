@@ -1,3 +1,5 @@
+import base64
+
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
@@ -19,11 +21,26 @@ class CustomerRegistrationSerializer(serializers.Serializer):
 
     first_name = serializers.CharField(max_length=100, required=True)
     last_name = serializers.CharField(max_length=100, required=True)
+    address = serializers.CharField(max_length=100, required=True)
+    phone_no = serializers.CharField(max_length=15, required=True)
+    credit_card_no = serializers.CharField(max_length=13, required=True)
 
     def validate_email(self, value):
         value = value.strip().lower()
         if User.objects.filter(email__iexact=value).exists():
             raise serializers.ValidationError("Email is already registered.")
+        return value
+
+    def validate_phone_no(self, value):
+        value = value.strip()
+        if Customer.objects.filter(phone_no=value).exists():
+            raise serializers.ValidationError("Phone number already exists.")
+        return value
+
+    def validate_credit_card_no(self, value):
+        value = value.strip()
+        if Customer.objects.filter(credit_card_no=value).exists():
+            raise serializers.ValidationError("Credit card number already exists.")
         return value
 
 
@@ -65,6 +82,14 @@ class CurrentUserSerializer(serializers.ModelSerializer):
         fields = ["id", "username", "email", "role", "display_name", "airline_company"]
 
     def get_role(self, obj):
+        if obj.user_role:
+            role = obj.user_role.role_name.strip().lower()
+            if role.startswith("administrator"):
+                return "administrator"
+            if role.startswith("airline"):
+                return "airline"
+            if role.startswith("customer"):
+                return "customer"
         if obj.is_superuser or hasattr(obj, "admin_profile"):
             return "administrator"
         if hasattr(obj, "airline_profile"):
@@ -87,12 +112,7 @@ class CurrentUserSerializer(serializers.ModelSerializer):
             return None
         airline = obj.airline_profile
         request = self.context.get("request")
-        logo_url = None
-        if airline.logo:
-            if request is not None:
-                logo_url = request.build_absolute_uri(airline.logo.url)
-            else:
-                logo_url = airline.logo.url
+        logo_url = airline.get_logo_url(request=request)
         return {"id": airline.id, "name": airline.name, "logo_url": logo_url}
 
 
@@ -107,7 +127,15 @@ class CustomerAdminSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Customer
-        fields = ["id", "first_name", "last_name", "user"]
+        fields = [
+            "id",
+            "first_name",
+            "last_name",
+            "address",
+            "phone_no",
+            "credit_card_no",
+            "user",
+        ]
 
 
 class AirlineAdminSerializer(serializers.ModelSerializer):
@@ -121,6 +149,7 @@ class AirlineAdminSerializer(serializers.ModelSerializer):
 
 
 class AirlineMeSerializer(serializers.ModelSerializer):
+    logo = serializers.ImageField(write_only=True, required=False, allow_null=True)
     country_name = serializers.CharField(source="country.name", read_only=True)
     country_iso2 = serializers.CharField(source="country.iso2", read_only=True)
     logo_url = serializers.SerializerMethodField(read_only=True)
@@ -139,12 +168,79 @@ class AirlineMeSerializer(serializers.ModelSerializer):
         ]
 
     def get_logo_url(self, obj):
-        if not obj.logo:
-            return None
         request = self.context.get("request")
-        if request is not None:
-            return request.build_absolute_uri(obj.logo.url)
-        return obj.logo.url
+        return obj.get_logo_url(request=request)
+
+    @staticmethod
+    def _file_to_data_url(uploaded_file):
+        content = uploaded_file.read()
+        encoded = base64.b64encode(content).decode("ascii")
+        mime_type = (
+            getattr(uploaded_file, "content_type", None) or "application/octet-stream"
+        )
+        return f"data:{mime_type};base64,{encoded}"
+
+    def update(self, instance, validated_data):
+        logo_file = validated_data.pop("logo", serializers.empty)
+        instance = super().update(instance, validated_data)
+
+        if logo_file is not serializers.empty:
+            instance.logo = (
+                None if logo_file is None else self._file_to_data_url(logo_file)
+            )
+            instance.save(update_fields=["logo"])
+
+        return instance
+
+
+class CustomerMeSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(source="user.email", required=False)
+
+    class Meta:
+        model = Customer
+        fields = [
+            "id",
+            "first_name",
+            "last_name",
+            "address",
+            "phone_no",
+            "credit_card_no",
+            "email",
+        ]
+
+    def validate_phone_no(self, value):
+        value = value.strip()
+        qs = Customer.objects.filter(phone_no=value)
+        if self.instance is not None:
+            qs = qs.exclude(id=self.instance.id)
+        if qs.exists():
+            raise serializers.ValidationError("Phone number already exists.")
+        return value
+
+    def validate_credit_card_no(self, value):
+        value = value.strip()
+        qs = Customer.objects.filter(credit_card_no=value)
+        if self.instance is not None:
+            qs = qs.exclude(id=self.instance.id)
+        if qs.exists():
+            raise serializers.ValidationError("Credit card number already exists.")
+        return value
+
+    def validate_email(self, value):
+        value = value.strip().lower()
+        customer_user_id = self.instance.user_id if self.instance else None
+        if User.objects.filter(email__iexact=value).exclude(id=customer_user_id).exists():
+            raise serializers.ValidationError("Email is already registered.")
+        return value
+
+    def update(self, instance, validated_data):
+        user_data = validated_data.pop("user", None) or {}
+        email = user_data.get("email")
+        if email and instance.user.email != email:
+            instance.user.email = email
+            instance.user.save(update_fields=["email"])
+
+        return super().update(instance, validated_data)
 
 
 class AdministratorReadSerializer(serializers.ModelSerializer):
