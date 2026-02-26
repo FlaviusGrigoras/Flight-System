@@ -12,6 +12,7 @@ import HomeNavbar from "./components/home/HomeNavbar";
 import { useAuth } from "./context/AuthContext";
 import PaymentProcessingPage from "./pages/PaymentProcessingPage";
 import PurchaseSuccessPage from "./pages/PurchaseSuccessPage";
+import TicketPage from "./pages/TicketPage";
 
 function AppShell() {
   const { user, logout } = useAuth();
@@ -34,6 +35,7 @@ function AppShell() {
             element={<PaymentProcessingPage />}
           />
           <Route path="/buy/:flightId/success" element={<PurchaseSuccessPage />} />
+          <Route path="/customer/tickets/:ticketId" element={<TicketPage />} />
         </Routes>
       </div>
     </Router>

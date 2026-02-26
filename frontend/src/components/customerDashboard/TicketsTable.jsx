@@ -1,4 +1,5 @@
 import { Alert, Button, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "@mui/material";
+import { useNavigate } from "react-router-dom";
 
 import styles from "./TicketsTable.module.css";
 
@@ -21,6 +22,8 @@ export default function TicketsTable({
   onCancel,
   flightById,
 }) {
+  const navigate = useNavigate();
+
   if (isLoadingTickets) return <Typography>Loading tickets...</Typography>;
   if (!tickets || tickets.length === 0)
     return <Alert severity="info">You have no tickets.</Alert>;
@@ -46,7 +49,7 @@ export default function TicketsTable({
             ? `#${f.id} (${formatDateTimeGB(f.departure_time)})`
             : `#${t.flight}`;
           const status = String(t.status ?? "").toLowerCase();
-          const isCancelled = status === "cancelled";
+          const isFinalStatus = status === "cancelled" || status === "refunded";
 
           return (
             <TableRow key={t.id}>
@@ -56,10 +59,27 @@ export default function TicketsTable({
               <TableCell>{formatDateTimeGB(t.purchased_at)}</TableCell>
               <TableCell>{t.seat_no ?? "—"}</TableCell>
               <TableCell align="right" className={styles.actionCell}>
+                {!isFinalStatus && (
+                  <Button
+                    size="small"
+                    variant="contained"
+                    sx={{ mr: 1 }}
+                    onClick={() =>
+                      navigate(`/customer/tickets/${t.id}`, {
+                        state: {
+                          ticket: t,
+                          flight: f ?? null,
+                        },
+                      })
+                    }
+                  >
+                    View ticket
+                  </Button>
+                )}
                 <Button
                   size="small"
                   variant="outlined"
-                  disabled={isCancelled}
+                  disabled={isFinalStatus}
                   onClick={() => onCancel(t.id)}
                 >
                   Cancel
@@ -72,4 +92,3 @@ export default function TicketsTable({
     </Table>
   );
 }
-
