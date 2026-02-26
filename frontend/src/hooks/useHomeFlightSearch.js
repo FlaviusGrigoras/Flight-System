@@ -70,6 +70,21 @@ const fallbackAirportObject = (airportId) => {
   };
 };
 
+const getRequiredSeats = (passengers) => {
+  const parsed = Number.parseInt(passengers, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+};
+
+const getRemainingSeatsForClass = (flight, cabinClass) => {
+  if (cabinClass === "business") {
+    return Number(flight.remaining_business_tickets ?? 0);
+  }
+
+  const economySeats = flight.remaining_economy_tickets;
+  if (economySeats != null) return Number(economySeats);
+  return Number(flight.remaining_tickets ?? 0);
+};
+
 export function useHomeFlightSearch() {
   const [rawFlights, setRawFlights] = useState([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
@@ -187,13 +202,15 @@ export function useHomeFlightSearch() {
 
   const searchFlights = useCallback(() => {
     if (!canSearch) return;
+    const requiredSeats = getRequiredSeats(passengers);
 
     const sorted = availableFlights
       .filter(
         (flight) =>
           String(flight.origin_airport) === String(fromAirportId) &&
           String(flight.destination_airport) === String(toAirportId) &&
-          toLocalDateKey(flight.departure_time) === departureDate
+          toLocalDateKey(flight.departure_time) === departureDate &&
+          getRemainingSeatsForClass(flight, cabinClass) >= requiredSeats
       )
       .map((flight) => ({
         ...flight,
