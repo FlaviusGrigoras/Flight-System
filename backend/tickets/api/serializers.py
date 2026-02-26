@@ -33,6 +33,8 @@ class TicketSoldSerializer(serializers.ModelSerializer):
             "customer",
             "status",
             "purchased_at",
+            "cancelled_at",
+            "refunded_at",
             "seat_no",
             "cabin_class",
         ]

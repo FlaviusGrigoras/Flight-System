@@ -31,7 +31,7 @@ class CustomerFacade(FacadeBase):
 
         sold_count = (
             Ticket.objects.filter(flight=flight, cabin_class=cabin_class)
-            .exclude(status=Ticket.Status.CANCELLED)
+            .exclude(status__in=[Ticket.Status.CANCELLED, Ticket.Status.REFUNDED])
             .count()
         )
         index = sold_count + 1
@@ -114,6 +114,8 @@ class CustomerFacade(FacadeBase):
 
             if ticket.status == Ticket.Status.CANCELLED:
                 raise ValidationDomainError("Ticket already cancelled")
+            if ticket.status == Ticket.Status.REFUNDED:
+                raise ValidationDomainError("Ticket already refunded")
 
             if ticket.flight.departure_time <= timezone.now():
                 raise ValidationDomainError("Cannot cancel ticket after departure")

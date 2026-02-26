@@ -5,6 +5,7 @@ class Ticket(models.Model):
     class Status(models.TextChoices):
         ACTIVE = "ACTIVE", "Active"
         CANCELLED = "CANCELLED", "Cancelled"
+        REFUNDED = "REFUNDED", "Refunded"
 
     class CabinClass(models.TextChoices):
         ECONOMY = "ECONOMY", "Economy"
@@ -21,6 +22,7 @@ class Ticket(models.Model):
     )
     purchased_at = models.DateTimeField(auto_now_add=True)
     cancelled_at = models.DateTimeField(null=True, blank=True)
+    refunded_at = models.DateTimeField(null=True, blank=True)
     seat_no = models.CharField(max_length=8, blank=True, default="")
 
     def __str__(self):

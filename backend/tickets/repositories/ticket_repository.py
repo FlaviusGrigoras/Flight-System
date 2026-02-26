@@ -54,4 +54,25 @@ class TicketRepository(BaseRepository):
         if flight_id is not None:
             qs = qs.filter(flight_id=flight_id)
 
-        return qs
+        return qs.order_by("-purchased_at", "-id")
+
+    def get_all_tickets(self, flight_id=None, airline_company_id=None, status=None):
+        qs = self.model.objects.select_related(
+            "customer",
+            "customer__user",
+            "flight",
+            "flight__airline_company",
+            "flight__origin_airport",
+            "flight__origin_airport__country",
+            "flight__destination_airport",
+            "flight__destination_airport__country",
+        )
+
+        if flight_id is not None:
+            qs = qs.filter(flight_id=flight_id)
+        if airline_company_id is not None:
+            qs = qs.filter(flight__airline_company_id=airline_company_id)
+        if status is not None:
+            qs = qs.filter(status=status)
+
+        return qs.order_by("-purchased_at", "-id")

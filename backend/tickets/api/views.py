@@ -4,6 +4,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from facades.airline_facade import AirlineFacade
 from facades.customer_facade import CustomerFacade
+from facades.ticket_management_facade import TicketManagementFacade
 from .serializers import TicketSerializer, TicketSoldSerializer
 
 
@@ -65,3 +66,49 @@ class AirlineSoldTicketsAPIView(APIView):
         facade = AirlineFacade(request.user.username)
         tickets = facade.get_sold_tickets(flight_id=flight_id)
         return Response(TicketSoldSerializer(tickets, many=True).data)
+
+
+class AdminTicketsAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        def _parse_optional_int(name: str):
+            raw = request.query_params.get(name)
+            if raw in (None, ""):
+                return None
+            if not str(raw).isdigit():
+                return Response(
+                    {"error": f"{name} must be an integer"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            return int(raw)
+
+        flight_id = _parse_optional_int("flight_id")
+        if isinstance(flight_id, Response):
+            return flight_id
+
+        airline_id = _parse_optional_int("airline_id")
+        if isinstance(airline_id, Response):
+            return airline_id
+
+        status_filter = request.query_params.get("status")
+
+        facade = TicketManagementFacade(request.user)
+        tickets = facade.get_all_tickets_for_admin(
+            flight_id=flight_id,
+            airline_id=airline_id,
+            status=status_filter,
+        )
+        return Response(TicketSoldSerializer(tickets, many=True).data)
+
+
+class TicketRefundAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk: int):
+        facade = TicketManagementFacade(request.user)
+        if request.user.is_superuser:
+            refunded = facade.refund_ticket_as_admin(pk)
+        else:
+            refunded = facade.refund_ticket_as_airline(pk)
+        return Response(TicketSoldSerializer(refunded).data, status=status.HTTP_200_OK)

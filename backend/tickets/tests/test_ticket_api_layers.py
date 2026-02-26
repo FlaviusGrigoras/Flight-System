@@ -4,7 +4,7 @@ import pytest
 from rest_framework.test import APIClient
 from django.utils import timezone
 
-from accounts.models import AirlineCompany, Customer, User
+from accounts.models import Administrator, AirlineCompany, Customer, User
 from flights.models import Flight
 from geo.models import Airport, Country
 from tickets.models import Ticket
@@ -278,3 +278,196 @@ def test_airline_sold_endpoint_rejects_non_airline_user():
     response = client.get("/api/tickets/airline/sold/")
 
     assert response.status_code == 403
+
+    refund_response = client.post("/api/tickets/1/refund/")
+    assert refund_response.status_code == 403
+
+
+@pytest.mark.django_db
+def test_airline_must_refund_tickets_before_deleting_flight():
+    country_ro = Country.objects.create(name="Romania", iso2="RO")
+    country_fr = Country.objects.create(name="France", iso2="FR")
+    otp = Airport.objects.create(
+        name="Henri Coanda",
+        city="Bucharest",
+        iata_code="OTP",
+        icao_code="LROP",
+        country=country_ro,
+    )
+    cdg = Airport.objects.create(
+        name="Charles de Gaulle",
+        city="Paris",
+        iata_code="CDG",
+        icao_code="LFPG",
+        country=country_fr,
+    )
+
+    airline_user = User.objects.create_user(
+        username="delete-after-refund-airline",
+        email="delete-after-refund-airline@example.com",
+        password="StrongPass123",
+    )
+    airline = AirlineCompany.objects.create(
+        name="Refund First Airline", country=country_ro, user=airline_user
+    )
+
+    customer_user = User.objects.create_user(
+        username="delete-after-refund-customer",
+        email="delete-after-refund-customer@example.com",
+        password="StrongPass123",
+    )
+    Customer.objects.create(
+        user=customer_user,
+        first_name="Refund",
+        last_name="Required",
+        address="5 Refund Street",
+        phone_no="PH00000000006",
+        credit_card_no="0000000000006",
+    )
+
+    flight = Flight.objects.create(
+        airline_company=airline,
+        origin_airport=otp,
+        destination_airport=cdg,
+        departure_time=timezone.now() + timedelta(days=1),
+        landing_time=timezone.now() + timedelta(days=1, hours=3),
+        remaining_tickets=20,
+        economy_seats=12,
+        business_seats=8,
+        remaining_economy_tickets=12,
+        remaining_business_tickets=8,
+        economy_price=100,
+        business_price=180,
+    )
+
+    customer_client = APIClient()
+    customer_client.force_authenticate(user=customer_user)
+    purchase_response = customer_client.post(
+        "/api/tickets/purchase/",
+        {"flight_id": flight.id, "cabin_class": "ECONOMY"},
+        format="json",
+    )
+    assert purchase_response.status_code == 201
+    ticket_id = purchase_response.data["id"]
+
+    airline_client = APIClient()
+    airline_client.force_authenticate(user=airline_user)
+
+    delete_response = airline_client.delete(f"/api/flights/my-flights/{flight.id}/")
+    assert delete_response.status_code == 400
+    assert (
+        "Refund all purchased tickets first"
+        in delete_response.data["error"]["message"]
+    )
+
+    refund_response = airline_client.post(f"/api/tickets/{ticket_id}/refund/")
+    assert refund_response.status_code == 200
+    assert refund_response.data["status"] == Ticket.Status.REFUNDED
+
+    my_tickets_response = customer_client.get("/api/tickets/my-tickets/")
+    assert my_tickets_response.status_code == 200
+    refunded = next(
+        item for item in my_tickets_response.data if item["id"] == ticket_id
+    )
+    assert refunded["status"] == Ticket.Status.REFUNDED
+
+    flight.refresh_from_db()
+    assert flight.remaining_tickets == 20
+    assert flight.remaining_economy_tickets == 12
+
+    delete_after_refund = airline_client.delete(f"/api/flights/my-flights/{flight.id}/")
+    assert delete_after_refund.status_code == 204
+
+
+@pytest.mark.django_db
+def test_admin_can_list_and_refund_tickets():
+    country_ro = Country.objects.create(name="Romania", iso2="RO")
+    country_fr = Country.objects.create(name="France", iso2="FR")
+    otp = Airport.objects.create(
+        name="Henri Coanda",
+        city="Bucharest",
+        iata_code="OTP",
+        icao_code="LROP",
+        country=country_ro,
+    )
+    cdg = Airport.objects.create(
+        name="Charles de Gaulle",
+        city="Paris",
+        iata_code="CDG",
+        icao_code="LFPG",
+        country=country_fr,
+    )
+
+    admin_user = User.objects.create_user(
+        username="ticket-admin",
+        email="ticket-admin@example.com",
+        password="StrongPass123",
+        is_superuser=True,
+        is_staff=True,
+    )
+    Administrator.objects.create(
+        user=admin_user,
+        first_name="Ticket",
+        last_name="Admin",
+    )
+
+    airline_user = User.objects.create_user(
+        username="ticket-admin-airline",
+        email="ticket-admin-airline@example.com",
+        password="StrongPass123",
+    )
+    airline = AirlineCompany.objects.create(
+        name="Ticket Admin Airline", country=country_ro, user=airline_user
+    )
+
+    customer_user = User.objects.create_user(
+        username="ticket-admin-customer",
+        email="ticket-admin-customer@example.com",
+        password="StrongPass123",
+    )
+    Customer.objects.create(
+        user=customer_user,
+        first_name="Ticket",
+        last_name="Customer",
+        address="6 Admin Street",
+        phone_no="PH00000000007",
+        credit_card_no="0000000000007",
+    )
+
+    flight = Flight.objects.create(
+        airline_company=airline,
+        origin_airport=otp,
+        destination_airport=cdg,
+        departure_time=timezone.now() + timedelta(days=1),
+        landing_time=timezone.now() + timedelta(days=1, hours=3),
+        remaining_tickets=20,
+        economy_seats=12,
+        business_seats=8,
+        remaining_economy_tickets=12,
+        remaining_business_tickets=8,
+        economy_price=100,
+        business_price=180,
+    )
+
+    customer_client = APIClient()
+    customer_client.force_authenticate(user=customer_user)
+    purchase_response = customer_client.post(
+        "/api/tickets/purchase/",
+        {"flight_id": flight.id, "cabin_class": "BUSINESS"},
+        format="json",
+    )
+    assert purchase_response.status_code == 201
+    ticket_id = purchase_response.data["id"]
+
+    admin_client = APIClient()
+    admin_client.force_authenticate(user=admin_user)
+    list_response = admin_client.get("/api/tickets/admin/all/")
+    assert list_response.status_code == 200
+    assert any(item["id"] == ticket_id for item in list_response.data)
+
+    refund_response = admin_client.post(f"/api/tickets/{ticket_id}/refund/")
+    assert refund_response.status_code == 200
+    assert refund_response.data["status"] == Ticket.Status.REFUNDED
+
+    ticket = Ticket.objects.get(id=ticket_id)
+    assert ticket.status == Ticket.Status.REFUNDED

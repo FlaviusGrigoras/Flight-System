@@ -3,6 +3,7 @@ from core.exceptions import ForbiddenError, ValidationDomainError, NotFoundError
 from django.utils import timezone
 from django.db import transaction
 from flights.models import Flight
+from tickets.models import Ticket
 from tickets.repositories.ticket_repository import TicketRepository
 from decimal import Decimal, InvalidOperation
 from datetime import timedelta, date
@@ -326,6 +327,14 @@ class AirlineFacade(FacadeBase):
 
         if flight.departure_time <= timezone.now():
             raise ValidationDomainError("Cannot delete a flight that already departed.")
+
+        has_active_tickets = Ticket.objects.filter(
+            flight_id=flight.id, status=Ticket.Status.ACTIVE
+        ).exists()
+        if has_active_tickets:
+            raise ValidationDomainError(
+                "Cannot delete flight while it has active tickets. Refund all purchased tickets first."
+            )
 
         logger.info(
             f"Airline '{self.airline_company.name}' removed flight ID {flight_id}."

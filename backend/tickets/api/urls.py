@@ -5,6 +5,8 @@ from .views import (
     MyTicketsAPIView,
     TicketCancelAPIView,
     AirlineSoldTicketsAPIView,
+    AdminTicketsAPIView,
+    TicketRefundAPIView,
 )
 
 urlpatterns = [
@@ -16,4 +18,6 @@ urlpatterns = [
         name="ticket-cancel",
     ),
     path("airline/sold/", AirlineSoldTicketsAPIView.as_view(), name="airline-sold"),
+    path("admin/all/", AdminTicketsAPIView.as_view(), name="admin-tickets"),
+    path("<int:pk>/refund/", TicketRefundAPIView.as_view(), name="ticket-refund"),
 ]
