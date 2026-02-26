@@ -24,11 +24,20 @@ class Command(BaseCommand):
             default=0,
             help="Limit airports inserted (0 = no limit).",
         )
-        parser.add_argument(
+        iata_mode = parser.add_mutually_exclusive_group()
+        iata_mode.add_argument(
             "--only-iata",
+            dest="only_iata",
             action="store_true",
-            help="Insert only airports that have an IATA code.",
+            help="Insert only airports that have an IATA code (default).",
         )
+        iata_mode.add_argument(
+            "--allow-non-iata",
+            dest="only_iata",
+            action="store_false",
+            help="Allow airports without IATA (ICAO still required).",
+        )
+        parser.set_defaults(only_iata=True)
         parser.add_argument(
             "--dry-run",
             action="store_true",
@@ -100,6 +109,8 @@ class Command(BaseCommand):
                 city = (r.get("municipality") or "").strip()
 
                 if not name:
+                    continue
+                if not iata and not icao:
                     continue
                 if only_iata and not iata:
                     continue
