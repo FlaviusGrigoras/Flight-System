@@ -1,10 +1,15 @@
 import apiClient from "./apiClient";
 
 export const ticketService = {
-  purchaseTicket: async (flightId) => {
-    const response = await apiClient.post("/tickets/purchase/", {
+  purchaseTicket: async (flightId, cabinClass) => {
+    const payload = {
       flight_id: flightId,
-    });
+    };
+    if (cabinClass) {
+      payload.cabin_class = String(cabinClass).toUpperCase();
+    }
+
+    const response = await apiClient.post("/tickets/purchase/", payload);
     return response.data;
   },
 
