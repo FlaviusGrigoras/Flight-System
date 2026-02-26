@@ -1,14 +1,17 @@
 from io import BytesIO
+from datetime import timedelta
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.utils import timezone
 from PIL import Image
 from rest_framework.test import APIClient
 
 from accounts.models import Administrator, AirlineCompany, Customer, User
 from core.exceptions import ForbiddenError, ValidationDomainError
 from facades.administrator_facade import AdministratorFacade
-from geo.models import Country
+from flights.models import Flight
+from geo.models import Airport, Country
 
 
 @pytest.mark.django_db
@@ -177,6 +180,69 @@ def test_admin_api_create_airline():
     assert list_response.status_code == 200
     returned_ids = {item["id"] for item in list_response.data}
     assert created_airline_id in returned_ids
+
+
+@pytest.mark.django_db
+def test_admin_api_delete_airline_with_flights_returns_validation_error():
+    admin_user = User.objects.create_user(
+        username="delete-airline-admin",
+        email="delete-airline-admin@example.com",
+        password="StrongPass123",
+        is_superuser=True,
+        is_staff=True,
+    )
+    Administrator.objects.create(
+        user=admin_user, first_name="Delete", last_name="Admin"
+    )
+    country = Country.objects.create(name="Germany", iso2="DE")
+    origin_airport = Airport.objects.create(
+        iata_code="FRA",
+        icao_code="EDDF",
+        name="Frankfurt Airport",
+        city="Frankfurt",
+        country=country,
+    )
+    destination_airport = Airport.objects.create(
+        iata_code="MUC",
+        icao_code="EDDM",
+        name="Munich Airport",
+        city="Munich",
+        country=country,
+    )
+    airline_user = User.objects.create_user(
+        username="delete-airline-user",
+        email="delete-airline-user@example.com",
+        password="StrongPass123",
+    )
+    airline = AirlineCompany.objects.create(
+        user=airline_user, name="Delete Airline", country=country
+    )
+    now = timezone.now()
+    Flight.objects.create(
+        airline_company=airline,
+        origin_airport=origin_airport,
+        destination_airport=destination_airport,
+        departure_time=now + timedelta(days=1),
+        landing_time=now + timedelta(days=1, hours=2),
+        remaining_tickets=10,
+        economy_seats=6,
+        business_seats=4,
+        remaining_economy_tickets=6,
+        remaining_business_tickets=4,
+        economy_price=100,
+        business_price=180,
+    )
+
+    client = APIClient()
+    client.force_authenticate(user=admin_user)
+
+    response = client.delete(f"/api/accounts/admin/airlines/{airline.id}/")
+
+    assert response.status_code == 400
+    assert response.data["error"]["code"] == "VALIDATION_ERROR"
+    assert "Cannot remove airline" in response.data["error"]["message"]
+    assert AirlineCompany.objects.filter(id=airline.id).exists()
+    assert User.objects.filter(id=airline_user.id).exists()
 
 
 @pytest.mark.django_db

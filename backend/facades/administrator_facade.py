@@ -2,6 +2,7 @@ from facades.base_facade import FacadeBase
 from accounts.models import Administrator, AirlineCompany
 from core.exceptions import ForbiddenError, NotFoundError, ValidationDomainError
 from django.db import transaction
+from django.db.models.deletion import ProtectedError
 import logging
 
 logger = logging.getLogger("accounts")
@@ -48,8 +49,18 @@ class AdministratorFacade(FacadeBase):
         if not airline:
             raise NotFoundError("Airline not found.")
 
+        if airline.flights.exists():
+            raise ValidationDomainError(
+                "Cannot remove airline that still has flights. Remove its flights first."
+            )
+
         with transaction.atomic():
-            self.user_repo.remove(airline.user_id)
+            try:
+                self.user_repo.remove(airline.user_id)
+            except ProtectedError as exc:
+                raise ValidationDomainError(
+                    "Cannot remove airline that still has flights. Remove its flights first."
+                ) from exc
         logger.info(f"Airline with ID {airline_id} removed by admin.")
 
         return True
