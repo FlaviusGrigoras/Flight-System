@@ -19,6 +19,12 @@ const getAirlineId = (airlineCompany) => {
   return airlineCompany;
 };
 
+const getAirlineLogoUrl = (flight) => {
+  if (flight.airline_company?.logo_url) return flight.airline_company.logo_url;
+  if (flight.airline_logo_url) return flight.airline_logo_url;
+  return null;
+};
+
 const getAirlineName = (flight) => {
   if (flight.airline_company?.name?.trim())
     return flight.airline_company.name.trim();
@@ -67,11 +73,22 @@ export default function HomeFlightResults({ flights, passengers, cabinClass }) {
         const origin = flight.origin_airport_obj;
         const destination = flight.destination_airport_obj;
         const airlineName = getAirlineName(flight);
+        const airlineLogoUrl = getAirlineLogoUrl(flight);
+        const fallbackBadge = airlineBadge(flight.airline_company);
 
         return (
           <Paper key={flight.id} className={styles.resultCard} elevation={0}>
             <Box className={styles.logoBox}>
-              {airlineBadge(flight.airline_company)}
+              {airlineLogoUrl ? (
+                <Box
+                  component="img"
+                  src={airlineLogoUrl}
+                  alt={`${airlineName} logo`}
+                  className={styles.logoImage}
+                />
+              ) : (
+                fallbackBadge
+              )}
             </Box>
 
             <Box className={styles.routeBox}>
@@ -106,7 +123,11 @@ export default function HomeFlightResults({ flights, passengers, cabinClass }) {
               <Button
                 variant="contained"
                 size="small"
-                onClick={() => navigate(`/buy/${flight.id}`)}
+                onClick={() =>
+                  navigate(`/buy/${flight.id}`, {
+                    state: { cabinClass },
+                  })
+                }
               >
                 Buy
               </Button>

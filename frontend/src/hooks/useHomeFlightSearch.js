@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { flightService } from "../services/flightService";
-import { geoService } from "../services/geoService";
 
 const getApiErrorMessage = (err, fallback) => {
   return (
@@ -33,7 +32,7 @@ const estimateTicketPrice = ({ flight, passengers, cabinClass }) => {
     1 - Number(flight.remaining_tickets ?? 0) / 150
   );
   const basePrice = 45 + durationHours * 18 + scarcityFactor * 70 + (flight.id % 19);
-  const classMultiplier = cabinClass === "premium" ? 1.6 : 1;
+  const classMultiplier = cabinClass === "business" ? 1.6 : 1;
   return Math.round(basePrice * Number(passengers) * classMultiplier);
 };
 
@@ -45,10 +44,34 @@ const uniqueById = (items) => {
   return Array.from(map.values());
 };
 
+const normalizeAirportObject = (airport) => {
+  if (!airport || typeof airport !== "object") return null;
+  const countryName =
+    (typeof airport.country?.name === "string" && airport.country.name.trim()) ||
+    (typeof airport.country_name === "string" && airport.country_name.trim()) ||
+    "Unknown country";
+  return {
+    ...airport,
+    country_name: countryName,
+  };
+};
+
+const fallbackAirportObject = (airportId) => {
+  if (airportId == null || airportId === "") return null;
+  const id = Number(airportId);
+  const normalizedId = Number.isFinite(id) ? id : airportId;
+  return {
+    id: normalizedId,
+    name: `Airport #${normalizedId}`,
+    city: `Airport #${normalizedId}`,
+    iata_code: "",
+    icao_code: "",
+    country_name: "Unknown country",
+  };
+};
+
 export function useHomeFlightSearch() {
   const [rawFlights, setRawFlights] = useState([]);
-  const [airports, setAirports] = useState([]);
-  const [countries, setCountries] = useState([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
 
   const [fromAirportId, setFromAirportId] = useState("");
@@ -64,14 +87,8 @@ export function useHomeFlightSearch() {
   const refreshData = useCallback(async () => {
     setIsLoadingData(true);
     try {
-      const [flightsData, airportsData, countriesData] = await Promise.all([
-        flightService.getAllFlights(),
-        geoService.getAirports({ limit: 5000 }),
-        geoService.getCountries(),
-      ]);
+      const flightsData = await flightService.getAllFlights();
       setRawFlights(flightsData);
-      setAirports(airportsData);
-      setCountries(countriesData);
       setError(null);
     } catch (e) {
       setError(getApiErrorMessage(e, "Failed to load flights data."));
@@ -84,33 +101,22 @@ export function useHomeFlightSearch() {
     refreshData();
   }, [refreshData]);
 
-  const countryNameById = useMemo(() => {
-    const map = new Map();
-    for (const country of countries) {
-      map.set(country.id, country.name);
-    }
-    return map;
-  }, [countries]);
-
-  const airportById = useMemo(() => {
-    const map = new Map();
-    for (const airport of airports) {
-      map.set(airport.id, {
-        ...airport,
-        country_name: countryNameById.get(airport.country) ?? "Unknown country",
-      });
-    }
-    return map;
-  }, [airports, countryNameById]);
-
   const availableFlights = useMemo(() => {
     const now = Date.now();
     return rawFlights
-      .map((flight) => ({
-        ...flight,
-        origin_airport_obj: airportById.get(flight.origin_airport) ?? null,
-        destination_airport_obj: airportById.get(flight.destination_airport) ?? null,
-      }))
+      .map((flight) => {
+        const originAirport =
+          normalizeAirportObject(flight.origin_airport_obj) ??
+          fallbackAirportObject(flight.origin_airport);
+        const destinationAirport =
+          normalizeAirportObject(flight.destination_airport_obj) ??
+          fallbackAirportObject(flight.destination_airport);
+        return {
+          ...flight,
+          origin_airport_obj: originAirport,
+          destination_airport_obj: destinationAirport,
+        };
+      })
       .filter((flight) => {
         const departure = new Date(flight.departure_time).getTime();
         return (
@@ -121,7 +127,7 @@ export function useHomeFlightSearch() {
           flight.destination_airport_obj
         );
       });
-  }, [rawFlights, airportById]);
+  }, [rawFlights]);
 
   const fromAirportOptions = useMemo(() => {
     return uniqueById(
@@ -236,4 +242,3 @@ export function useHomeFlightSearch() {
     refreshData,
   };
 }
-

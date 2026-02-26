@@ -2,7 +2,9 @@ import apiClient from "./apiClient";
 
 export const flightService = {
   getAllFlights: async () => {
-    const response = await apiClient.get("/flights/");
+    const response = await apiClient.get("/flights/", {
+      params: { _ts: Date.now() },
+    });
     return response.data;
   },
 
